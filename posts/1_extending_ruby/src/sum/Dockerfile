@@ -4,4 +4,4 @@ COPY . .
 RUN apk --no-cache add build-base && \
   ruby ./ext/sum/extconf.rb && \
   make
-CMD ["ruby", "sum.rb"]
+CMD ["ruby", "main.rb"]

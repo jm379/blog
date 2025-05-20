@@ -105,8 +105,7 @@ end
 Now, how do we run this C file? Easy, we need to compile it into a shared library!
 
 Ruby have a module ([MakeMakefile](https://docs.ruby-lang.org/en/3.4/MakeMakefile.html)) that provides a
-DSL to easily create a Makefile to compile our extension into a shared library. Let's create an
-`ext/sum/extconf.rb`, so we can create our Makefile.
+DSL to create a Makefile and compile our extension into a shared library. Let's create `ext/sum/extconf.rb`.
 
 ```ruby
 require 'mkmf'
@@ -115,8 +114,55 @@ create_makefile 'sum/sum'
 ```
 
 Since our this example is very simple, there is no need to add more options to compile this extension.
-To generate the Makefile, we need to run the extconf.rb 
+To generate the Makefile, we need to run the `extconf.rb`
 
 ```shell
-$ ruby ext/sum/extconf.rb
+$ ruby ext/sum/extconf.rb && \
+    tree
+
+creating Makefile
+.
+├── ext
+│   └── sum
+│       ├── extconf.rb
+│       └── sum.c
+└── Makefile
+
+3 directories, 3 files
 ```
+
+That will create the Makefile in the current directory. Now we just need to compile using `make`. The
+Makefile will create two files in our current directory, `sum.o` and `sum.so`. Only the `sum.so` is
+important for our needs.
+
+```shell
+$ make && \
+    tree
+
+compiling ext/sum/sum.c
+linking shared-object sum/sum.so
+.
+├── ext
+│   └── sum
+│       ├── extconf.rb
+│       └── sum.c
+├── Makefile
+├── sum.o
+└── sum.so
+
+3 directories, 7 files
+```
+
+Done. We created our first C shared library that can be used directly in Ruby!
+To use the `sum.so` only needs to add a `require_relative 'sum'`. Here is an example
+
+```ruby
+require_relative 'sum'
+
+Sum.add 2, 3
+```
+
+
+## Window Time
+
+TODO

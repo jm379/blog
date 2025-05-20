@@ -113,8 +113,7 @@ end
 <p>Now, how do we run this C file? Easy, we need to compile it into a shared library!</p>
 
 <p>Ruby have a module (<a href="https://docs.ruby-lang.org/en/3.4/MakeMakefile.html">MakeMakefile</a>) that provides a
-DSL to easily create a Makefile to compile our extension into a shared library. Let&#39;s create an
-<code>ext/sum/extconf.rb</code>, so we can create our Makefile.</p>
+DSL to create a Makefile and compile our extension into a shared library. Let&#39;s create <code>ext/sum/extconf.rb</code>.</p>
 
 <pre><code class="ruby">require &#39;mkmf&#39;
 
@@ -122,10 +121,54 @@ create_makefile &#39;sum/sum&#39;
 </code></pre>
 
 <p>Since our this example is very simple, there is no need to add more options to compile this extension.
-To generate the Makefile, we need to run the extconf.rb </p>
+To generate the Makefile, we need to run the <code>extconf.rb</code></p>
 
-<pre><code class="shell">$ ruby ext/sum/extconf.rb
+<pre><code class="shell">$ ruby ext/sum/extconf.rb &amp;&amp; \
+    tree
+
+creating Makefile
+.
+├── ext
+│   └── sum
+│       ├── extconf.rb
+│       └── sum.c
+└── Makefile
+
+3 directories, 3 files
 </code></pre>
+
+<p>That will create the Makefile in the current directory. Now we just need to compile using <code>make</code>. The
+Makefile will create two files in our current directory, <code>sum.o</code> and <code>sum.so</code>. Only the <code>sum.so</code> is
+important for our needs.</p>
+
+<pre><code class="shell">$ make &amp;&amp; \
+    tree
+
+compiling ext/sum/sum.c
+linking shared-object sum/sum.so
+.
+├── ext
+│   └── sum
+│       ├── extconf.rb
+│       └── sum.c
+├── Makefile
+├── sum.o
+└── sum.so
+
+3 directories, 7 files
+</code></pre>
+
+<p>Done. We created our first C shared library that can be used directly in Ruby!
+To use the <code>sum.so</code> only needs to add a <code>require_relative &#39;sum&#39;</code>. Here is an example</p>
+
+<pre><code class="ruby">require_relative &#39;sum&#39;
+
+Sum.add 2, 3
+</code></pre>
+
+<h2>Window Time</h2>
+
+<p>TODO</p>
 
   </main>
 
