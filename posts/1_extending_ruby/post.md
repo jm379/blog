@@ -150,16 +150,16 @@ linking shared-object sum/sum.so
 ├── sum.o
 └── sum.so
 
-3 directories, 7 files
+3 directories, 5 files
 ```
 
 Done. We created our first C shared library that can be used directly in Ruby!
-To use the `sum.so` only needs to add a `require_relative 'sum'`. Here is an example
+To use the `sum.so` it only needs required as `require_relative 'sum'`. Here is an example
 
 ```ruby
 require_relative 'sum'
 
-Sum.add 2, 3
+Sum.add 2, 3 # => 5
 ```
 
 
