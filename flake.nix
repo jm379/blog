@@ -22,6 +22,7 @@
         pkgs.git
         pkgs.ruby_3_4
         pkgs.caddy
+        pkgs.tree
       ];
     };
   };
