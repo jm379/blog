@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Extending Ruby</title>
+
+  <link href="./assets/style.css" rel="stylesheet" />
+</head>
+
+<body>
+  <header><h1>Extending Ruby</h1></header>
+  <main>
+    <p id="date"><b>2025-05-20</b></p>
+    <h2>Introduction</h2>
+
+<p>Ruby is a great programming laguage, known for its developer friendly syntax and fast development.
+Unfortunately that comes with a performance cost, although with its recents improvements, like the native Ruby parser
+<a href="https://github.com/ruby/prism">PRISM</a>, or using Rust on its just in time compiler <a href="https://github.com/ruby/ruby/blob/master/doc/yjit/yjit.md">YJIT</a>.</p>
+
+<p>However, there are times when you have to push the performance further, like adding <a href="https://en.wikipedia.org/wiki/Single_instruction,_multiple_data">SIMD</a>,
+or maybe there&#39;s a library with C binding, like <a href="https://github.com/raysan5/raylib">raylib</a>, 
+or even integrating with Large Language Models, and extending Ruby can be the perfect solution.</p>
+
+<p>The Ruby MRI (Matz&#39;s Ruby Interpreter or CRuby) implementation provides a C API to extend its capabilities.
+There are two ways of extending Ruby, an easier approach using <a href="https://en.wikipedia.org/wiki/Foreign_function_interface">FFI</a>, 
+or compiling and loading a <a href="https://en.wikipedia.org/wiki/Shared_library">shared library</a>
+for more control.</p>
+
+<p>This post will focus on the compilation method to create C extensions for Ruby on <a href="https://stallman-copypasta.github.io/">GNU/Linux</a>,
+by first creating a simple adder class, and then wrapping raylib to create a <a href="https://github.com/raysan5/raylib/blob/master/examples/core/core_basic_window.c">simple window</a>.
+Every example was created using Ruby <code>3.4.3</code>, other versions may not work!.</p>
+
+<h2>Let&#39;s Add</h2>
+
+<p>First and foremost, we have to be confortable with reading and writing C,
+and then, get familiar with the <a href="https://docs.ruby-lang.org/en/master/extension_rdoc.html">C API</a>.</p>
+
+<p>Every extension should be located in the <code>./ext/&lt;extension_name&gt;/&lt;extension_name&gt;.c</code> directory.
+Knowing that, lets create the directory structure and the file needed.</p>
+
+<pre><code class="shell">$ mkdir -p ./sum/ext/sum &amp;&amp; \
+    cd sum &amp;&amp; \
+    touch ext/sum/sum.c &amp;&amp; \
+    tree
+.
+└── ext
+   └── sum
+       └── sum.c
+
+3 directories, 1 file
+</code></pre>
+
+<p>Now open your favorite editor and add these contents to the <code>sum.c</code> file.</p>
+
+<pre><code class="c">#include &lt;ruby.h&gt;
+
+static VALUE add(VALUE self, VALUE a, VALUE b) {
+  return RB_INT2FIX(RB_FIX2INT(a) + RB_FIX2INT(b));
+}
+
+void Init_sum(void) {
+  VALUE sumClass = rb_define_class(&quot;Sum&quot;, rb_cObject);
+  rb_define_singleton_method(sumClass, &quot;add&quot;, add, 2);
+}
+</code></pre>
+
+<p>Wow! that&#39;s a lot of weird stuff!<br>
+Lets break down the file in parts so we can understand what&#39;s happening.</p>
+
+<p>The <code>#include &lt;ruby.h&gt;</code> allows the usage of the Ruby C API, so we can interact with Ruby within our
+C code.</p>
+
+<p>Let&#39;s analyze the <code>add</code> function:</p>
+
+<ul>
+<li><p>The <a href="https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/value.h#L40"><code>VALUE</code></a>
+is an <code>uintptr_t</code>, an unsigned integer that can be used as a pointer, and it represents a Ruby Object,
+so it could be an Integer, Array, File, etc...</p></li>
+<li><p>The <a href="https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/arithmetic/int.h#L129"><code>RB_FIX2INT</code></a>
+is a function that converts a <code>VALUE</code> to a C Integer.</p></li>
+<li><p>The <a href="https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/arithmetic/long.h#L111"><code>RB_INT2FIX</code></a>
+is a function that converts a C Integer into a <code>VALUE</code>.</p></li>
+</ul>
+
+<p>So the <code>VALUE add(VALUE self, VALUE a, VALUE b)</code> function receives two Ruby objects (<code>VALUE a</code> and <code>VALUE b</code>),
+converts them to C Integers, adds them, wraps the result into a <code>VALUE</code>, and then returns it.</p>
+
+<p>Finally, let&#39;s analyze the <code>Init_sum</code> function:</p>
+
+<ul>
+<li><p>The function <code>void Init_sum(void)</code> is the entrypoint of our extension. It should always be named like
+<code>Init_&lt;extension_name&gt;</code>.</p></li>
+<li><p>The <a href="https://github.com/ruby/ruby/blob/c52f4eea564058a8a9865ccc8b2aa6de0c04d156/class.c#L1481"><code>rb_define_class</code></a>
+function is used to create a class Object in Ruby, it expects the name of the class, and its superclass.
+Every object <strong>must</strong> have a superclass.</p></li>
+<li><p>The <code>VALUE sumClass = rb_define_class(&quot;Sum&quot;, rb_cObject);</code> creates a class <code>Sum</code>, with a superclass
+<a href="https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/globals.h#L68"><code>rb_cObject</code></a>
+that references to <code>Object</code> in Ruby, and then stores the Ruby class into <code>VALUE sumClass</code>.</p></li>
+<li><p>The <a href="https://github.com/ruby/ruby/blob/c52f4eea564058a8a9865ccc8b2aa6de0c04d156/class.c#L2820"><code>rb_define_singleton_method</code></a>
+is used to create an <code>add</code> singleton method for the class <code>VALUE sumClass</code>.</p></li>
+</ul>
+
+<p>All of that to would be the same in Ruby as:</p>
+
+<pre><code class="ruby">class Sum
+  def self.add(a, b)
+    return a + b
+  end
+end
+</code></pre>
+
+<p>Now, how do we run this C file? Easy, we need to compile it into a shared library!</p>
+
+<p>Ruby have a module (<a href="https://docs.ruby-lang.org/en/3.4/MakeMakefile.html">MakeMakefile</a>) that provides a
+DSL to easily create a Makefile to compile our extension into a shared library. Let&#39;s create an
+<code>ext/sum/extconf.rb</code>, so we can create our Makefile.</p>
+
+<pre><code class="ruby">require &#39;mkmf&#39;
+
+create_makefile &#39;sum/sum&#39;
+</code></pre>
+
+<p>Since our this example is very simple, there is no need to add more options to compile this extension.
+To generate the Makefile, we need to run the extconf.rb </p>
+
+<pre><code class="shell">$ ruby ext/sum/extconf.rb
+</code></pre>
+
+  </main>
+
+  <footer>
+    <p>2025 — Rodolfo V.</p>
+  </footer>
+
+</body>
+</html>
+

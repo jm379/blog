@@ -1,0 +1,7 @@
+index: 1
+
+layout: default.erb
+output: extending-ruby.html
+
+title: Extending Ruby
+date: 2025-05-20
