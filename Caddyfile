@@ -1,0 +1,7 @@
+blog.jmonka.xyz {
+  encode gzip
+
+  file_server {
+    root /var/www/html
+  }
+}
