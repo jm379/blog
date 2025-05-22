@@ -15,3 +15,13 @@ VALUE color_initialize(VALUE self, VALUE red, VALUE green, VALUE blue, VALUE alp
 
   return self;
 }
+
+Color get_color(VALUE colorObj) {
+  Color color;
+  color.r = (unsigned char) NUM2UINT(rb_iv_get(colorObj, "@red"));
+  color.g = (unsigned char) NUM2UINT(rb_iv_get(colorObj, "@green"));
+  color.b = (unsigned char) NUM2UINT(rb_iv_get(colorObj, "@blue"));
+  color.a = (unsigned char) NUM2UINT(rb_iv_get(colorObj, "@alpha"));
+
+  return color;
+}
