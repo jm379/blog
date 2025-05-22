@@ -1,6 +1,6 @@
 ## Introduction
 
-Ruby is a great programming laguage, known for its developer friendly syntax and fast development.
+Ruby is a great programming laguage, known for its developer friendliness and fast development.
 Unfortunately that comes with a performance cost, although with its recents improvements, like the native Ruby parser
 [PRISM](https://github.com/ruby/prism), or using Rust on its just in time compiler [YJIT](https://github.com/ruby/ruby/blob/master/doc/yjit/yjit.md).
 
@@ -154,7 +154,7 @@ linking shared-object sum/sum.so
 ```
 
 Done. We created our first C shared library that can be used directly in Ruby!
-To use the `sum.so` it only needs required as `require_relative 'sum'`. Here is an example
+To use the `sum.so` it only needs to be required as `require_relative 'sum'`. Here is an example
 
 ```ruby
 require_relative 'sum'
@@ -165,4 +165,20 @@ Sum.add 2, 3 # => 5
 
 ## Window Time
 
-TODO
+Time for a more complex task, building a window using raylib. First we need to install or build it,
+[here's](https://github.com/raysan5/raylib/wiki/Working-on-GNU-Linux) the documentation for that.
+Then, let's prepare the directories for it.
+
+```shell
+ $ mkdir -p raylib/ext && \
+     cd raylib && \
+     touch ext/raylib.c ext/extconf.rb && \
+     tree
+
+.
+└── ext
+    ├── extconf.rb
+    └── raylib.c
+
+2 directories, 2 files
+```

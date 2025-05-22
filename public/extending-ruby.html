@@ -14,7 +14,7 @@
     <p id="date"><b>2025-05-20</b></p>
     <h2>Introduction</h2>
 
-<p>Ruby is a great programming laguage, known for its developer friendly syntax and fast development.
+<p>Ruby is a great programming laguage, known for its developer friendliness and fast development.
 Unfortunately that comes with a performance cost, although with its recents improvements, like the native Ruby parser
 <a href="https://github.com/ruby/prism">PRISM</a>, or using Rust on its just in time compiler <a href="https://github.com/ruby/ruby/blob/master/doc/yjit/yjit.md">YJIT</a>.</p>
 
@@ -159,7 +159,7 @@ linking shared-object sum/sum.so
 </code></pre>
 
 <p>Done. We created our first C shared library that can be used directly in Ruby!
-To use the <code>sum.so</code> it only needs required as <code>require_relative &#39;sum&#39;</code>. Here is an example</p>
+To use the <code>sum.so</code> it only needs to be required as <code>require_relative &#39;sum&#39;</code>. Here is an example</p>
 
 <pre><code class="ruby">require_relative &#39;sum&#39;
 
@@ -168,7 +168,22 @@ Sum.add 2, 3 # =&gt; 5
 
 <h2>Window Time</h2>
 
-<p>TODO</p>
+<p>Time for a more complex task, building a window using raylib. First we need to install or build it,
+<a href="https://github.com/raysan5/raylib/wiki/Working-on-GNU-Linux">here&#39;s</a> the documentation for that.
+Then, let&#39;s prepare the directories for it.</p>
+
+<pre><code class="shell"> $ mkdir -p raylib/ext &amp;&amp; \
+     cd raylib &amp;&amp; \
+     touch ext/raylib.c ext/extconf.rb &amp;&amp; \
+     tree
+
+.
+└── ext
+    ├── extconf.rb
+    └── raylib.c
+
+2 directories, 2 files
+</code></pre>
 
   </main>
 
