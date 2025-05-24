@@ -1,6 +1,6 @@
-#include <ruby.h>
-#include "raylib.h"
 #include "color.h"
+// color.h already includes ruby.h and raylib.h,
+// so there is no need for include them here too
 
 static VALUE init_window(VALUE self, VALUE height, VALUE width, VALUE title) {
   InitWindow(
@@ -71,10 +71,5 @@ void Init_window(void) {
   rb_define_singleton_method(raylibModule, "close_window", close_window, 0);
 
   // Creating a Raylib::Color Class
-  VALUE colorClass = rb_define_class_under(raylibModule, "Color", rb_cObject);
-  rb_define_method(colorClass, "initialize", color_initialize, 4);
-  rb_define_attr(colorClass, "red", 1, 1);
-  rb_define_attr(colorClass, "green", 1, 1);
-  rb_define_attr(colorClass, "blue", 1, 1);
-  rb_define_attr(colorClass, "alpha", 1, 1);
+  VALUE colorClass = init_color(raylibModule);
 }

@@ -1,21 +1,24 @@
 #include "color.h"
 
+// Same as:
+// class Color
+//   def initialize(red, green, blue, alpha)
+//     @red = red
+//     @green = green
+//     @blue = blue
+//     @alpha = alpha
+//   end
+// end
 VALUE color_initialize(VALUE self, VALUE red, VALUE green, VALUE blue, VALUE alpha) {
-  ID iv_red = rb_intern("@red");
-  rb_ivar_set(self, iv_red, red);
-
-  ID iv_green = rb_intern("@green");
-  rb_ivar_set(self, iv_green, green);
-
-  ID iv_blue = rb_intern("@blue");
-  rb_ivar_set(self, iv_blue, blue);
-
-  ID iv_alpha = rb_intern("@alpha");
-  rb_ivar_set(self, iv_alpha, alpha);
+  rb_iv_set(self, "@red", red);
+  rb_iv_set(self, "@green", green);
+  rb_iv_set(self, "@blue", blue);
+  rb_iv_set(self, "@alpha", alpha);
 
   return self;
 }
 
+// Helper function to build a Raylib Color struct from ruby Color class
 Color get_color(VALUE colorObj) {
   Color color;
   color.r = (unsigned char) NUM2UINT(rb_iv_get(colorObj, "@red"));
@@ -24,4 +27,17 @@ Color get_color(VALUE colorObj) {
   color.a = (unsigned char) NUM2UINT(rb_iv_get(colorObj, "@alpha"));
 
   return color;
+}
+
+VALUE init_color(VALUE super) {
+    VALUE colorClass = rb_define_class_under(super, "Color", rb_cObject);
+    rb_define_method(colorClass, "initialize", color_initialize, 4);
+
+    // Creating attr_acessor :red, :green, :blue, :alpha for our Color class
+    rb_define_attr(colorClass, "red", 1, 1);
+    rb_define_attr(colorClass, "green", 1, 1);
+    rb_define_attr(colorClass, "blue", 1, 1);
+    rb_define_attr(colorClass, "alpha", 1, 1);
+
+    return colorClass;
 }

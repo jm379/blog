@@ -163,22 +163,211 @@ Sum.add 2, 3 # => 5
 ```
 
 
-## Window Time
+## Windows Time
 
-Time for a more complex task, building a window using raylib. First we need to install or build it,
-[here's](https://github.com/raysan5/raylib/wiki/Working-on-GNU-Linux) the documentation for that.
-Then, let's prepare the directories for it.
+Time for a more complex task, building a window using raylib. First we need to 
+[build it](https://github.com/raysan5/raylib/wiki/Working-on-GNU-Linux),
+then, let's create the directories and files needed.
 
 ```shell
- $ mkdir -p raylib/ext && \
+$ mkdir -p raylib/ext && \
      cd raylib && \
-     touch ext/raylib.c ext/extconf.rb && \
+     touch ext/raylib.c ext/color.h ext.color.c ext/extconf.rb window.rb && \
      tree
-
 .
-└── ext
-    ├── extconf.rb
-    └── raylib.c
+├── ext
+│   └── window
+│       ├── color.c
+│       ├── color.h
+│       ├── extconf.rb
+│       └── window.c
+├── window.rb
 
-2 directories, 2 files
+3 directories, 5 files
+```
+
+`ext/window/color.h`
+
+```c
+#include <ruby.h>
+#include "raylib.h"
+
+VALUE color_initialize(VALUE self, VALUE red, VALUE green, VALUE blue, VALUE alpha);
+Color get_color(VALUE colorObj);
+VALUE init_color(VALUE super);
+```
+
+`ext/window/color.c`
+
+```c
+#include "color.h"
+
+// Same as:
+// class Color
+//   def initialize(red, green, blue, alpha)
+//     @red = red
+//     @green = green
+//     @blue = blue
+//     @alpha = alpha
+//   end
+// end
+VALUE color_initialize(VALUE self, VALUE red, VALUE green, VALUE blue, VALUE alpha) {
+  rb_iv_set(self, "@red", red);
+  rb_iv_set(self, "@green", green);
+  rb_iv_set(self, "@blue", blue);
+  rb_iv_set(self, "@alpha", alpha);
+
+  return self;
+}
+
+// Helper function to build a Raylib Color struct from ruby Color class
+Color get_color(VALUE colorObj) {
+  Color color;
+  color.r = (unsigned char) NUM2UINT(rb_iv_get(colorObj, "@red"));
+  color.g = (unsigned char) NUM2UINT(rb_iv_get(colorObj, "@green"));
+  color.b = (unsigned char) NUM2UINT(rb_iv_get(colorObj, "@blue"));
+  color.a = (unsigned char) NUM2UINT(rb_iv_get(colorObj, "@alpha"));
+
+  return color;
+}
+
+VALUE init_color(VALUE super) {
+    VALUE colorClass = rb_define_class_under(super, "Color", rb_cObject);
+    rb_define_method(colorClass, "initialize", color_initialize, 4);
+
+    // Creating attr_acessor :red, :green, :blue, :alpha for our Color class
+    rb_define_attr(colorClass, "red", 1, 1);
+    rb_define_attr(colorClass, "green", 1, 1);
+    rb_define_attr(colorClass, "blue", 1, 1);
+    rb_define_attr(colorClass, "alpha", 1, 1);
+
+    return colorClass;
+}
+```
+
+We could have wrapped the [Raylib Color struct](https://github.com/raysan5/raylib/blob/8d9c1cecb7f53aef720e2ee0d1558ffc39fa7eef/src/raylib.h#L247)
+into a [`TypedData_Wrap_Struct`](https://docs.ruby-lang.org/en/master/extension_rdoc.html#label-C+struct+to+Ruby+object),
+but for simplicity, we'll use the helper function `Color get_color(VALUE colorObj)`
+to build a Color struct from the `Raylib::Color` class.
+
+[`rb_iv_set`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/variable.c#L4799)
+sets an instance variable, in that case, sets `@red`, `@green`, `@blue`, and `@alpha`.
+
+[`rb_iv_get`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/variable.c#L4788)
+gets the instance variable from a ruby class.
+
+[`RB_NUM2UINT`](https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/arithmetic/int.h#L185)
+converts a Ruby [Numeric](https://docs.ruby-lang.org/en/master/Numeric.html) into a C `unsigned int`.
+
+`ext/window/window.c`
+
+```c
+#include "color.h"
+// color.h already includes ruby.h and raylib.h,
+// so there is no need for include them here too
+
+static VALUE init_window(VALUE self, VALUE height, VALUE width, VALUE title) {
+  InitWindow(
+    RB_FIX2INT(height),
+    RB_FIX2INT(width),
+    StringValueCStr(title)
+  );
+
+  return Qnil;
+}
+
+static VALUE set_target_fps(VALUE self, VALUE fps) {
+  SetTargetFPS(RB_FIX2INT(fps));
+
+  return Qnil;
+}
+
+static VALUE window_should_close(VALUE self) {
+  return WindowShouldClose();
+}
+
+static VALUE begin_drawing(VALUE self) {
+  BeginDrawing();
+
+  return Qnil;
+}
+
+static VALUE end_drawing(VALUE self) {
+  EndDrawing();
+
+  return Qnil;
+}
+
+static VALUE clear_background(VALUE self, VALUE colorObj) {
+  ClearBackground(get_color(colorObj));
+
+  return Qnil;
+}
+
+static VALUE draw_text(VALUE self, VALUE text, VALUE posX, VALUE posY, VALUE fontSize, VALUE colorObj) {
+  DrawText(
+    StringValueCStr(text),
+    RB_FIX2INT(posX),
+    RB_FIX2INT(posY),
+    RB_FIX2INT(fontSize),
+    get_color(colorObj)
+  );
+
+  return Qnil;
+}
+
+static VALUE close_window(VALUE self) {
+  CloseWindow();
+
+  return Qnil;
+}
+
+void Init_window(void) {
+  // Creating a Raylib module
+  VALUE raylibModule = rb_define_module("Raylib");
+  rb_define_singleton_method(raylibModule, "init_window", init_window, 3);
+  rb_define_singleton_method(raylibModule, "set_target_fps", set_target_fps, 1);
+  rb_define_singleton_method(raylibModule, "window_should_close?", window_should_close, 0);
+  rb_define_singleton_method(raylibModule, "begin_drawing", begin_drawing, 0);
+  rb_define_singleton_method(raylibModule, "end_drawing", end_drawing, 0);
+  rb_define_singleton_method(raylibModule, "clear_background", clear_background, 1);
+  rb_define_singleton_method(raylibModule, "draw_text", draw_text, 5);
+  rb_define_singleton_method(raylibModule, "close_window", close_window, 0);
+
+  // Creating a Raylib::Color Class
+  init_color(raylibModule);
+}
+```
+
+`ext/window/extconf.rb`
+
+```ruby
+require 'mkmf'
+
+with_ldflags("-lraylib -lGL -lm -lpthread -ldl -lrt -lX11") { true }
+
+create_makefile 'window/window'
+```
+
+`window.rb`
+
+```ruby
+require_relative 'window.so'
+
+RAYWHITE = Raylib::Color.new 245, 245, 245, 255
+LIGHTGRAY = Raylib::Color.new 200, 200, 200, 255
+
+Raylib.init_window 800, 450, 'raylib [core] example - basic window'
+Raylib.set_target_fps 60
+
+while !Raylib.window_should_close? do
+  Raylib.begin_drawing
+  Raylib.clear_background RAYWHITE
+  Raylib.draw_text 'Congrats! You created your first window!', 190, 200, 20, LIGHTGRAY
+  Raylib.end_drawing
+end
+
+Raylib.close_window
+
+exit 0
 ```
