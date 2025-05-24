@@ -183,7 +183,7 @@ then, let&#39;s create the directories and files needed.</p>
 │       ├── color.h
 │       ├── extconf.rb
 │       └── window.c
-├── window.rb
+└── window.rb
 
 3 directories, 5 files
 </code></pre>
@@ -258,6 +258,9 @@ gets the instance variable from a ruby class.</p>
 
 <p><a href="https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/arithmetic/int.h#L185"><code>RB_NUM2UINT</code></a>
 converts a Ruby <a href="https://docs.ruby-lang.org/en/master/Numeric.html">Numeric</a> into a C <code>unsigned int</code>.</p>
+
+<p><a href="https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/include/ruby/internal/method.h#L199"><code>rb_define_attr</code></a>
+defines either an <code>attr_reader</code>, or <code>attr_writer</code>, depending on the flags passed to <code>rb_define_attr</code>.</p>
 
 <p><code>ext/window/window.c</code></p>
 
@@ -368,6 +371,13 @@ Raylib.close_window
 
 exit 0
 </code></pre>
+
+<p>After compiling and running the <code>window.rb</code>, it should open up a window exactly as the
+<a href="https://www.raylib.com/examples/core/loader.html?name=core_basic_window">example from raylib</a>.</p>
+
+<h2>Wrapping Up</h2>
+
+<p>TODO</p>
 
   </main>
 

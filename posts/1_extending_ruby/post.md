@@ -181,7 +181,7 @@ $ mkdir -p raylib/ext && \
 │       ├── color.h
 │       ├── extconf.rb
 │       └── window.c
-├── window.rb
+└── window.rb
 
 3 directories, 5 files
 ```
@@ -258,6 +258,9 @@ gets the instance variable from a ruby class.
 
 [`RB_NUM2UINT`](https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/arithmetic/int.h#L185)
 converts a Ruby [Numeric](https://docs.ruby-lang.org/en/master/Numeric.html) into a C `unsigned int`.
+
+[`rb_define_attr`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/include/ruby/internal/method.h#L199)
+defines either an `attr_reader`, or `attr_writer`, depending on the flags passed to `rb_define_attr`.
 
 `ext/window/window.c`
 
@@ -371,3 +374,10 @@ Raylib.close_window
 
 exit 0
 ```
+
+After compiling and running the `window.rb`, it should open up a window exactly as the
+[example from raylib](https://www.raylib.com/examples/core/loader.html?name=core_basic_window).
+
+## Wrapping Up
+
+TODO
