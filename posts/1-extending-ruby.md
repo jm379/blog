@@ -1,3 +1,9 @@
+---
+index: 1
+title: Extending Ruby
+date: 2025-05-24
+---
+
 ## Introduction
 
 Ruby is a great programming laguage, known for its developer friendliness and fast development.
@@ -9,9 +15,9 @@ or maybe there's a library with C binding, like [raylib](https://github.com/rays
 or even integrating with Large Language Models, and extending Ruby can be the perfect solution.
 
 The Ruby MRI (Matz's Ruby Interpreter or CRuby) implementation provides a C API to extend its capabilities.
-There are two ways of extending Ruby, an easier approach using [FFI](https://en.wikipedia.org/wiki/Foreign_function_interface), 
-or compiling and loading a [shared library](https://en.wikipedia.org/wiki/Shared_library)
-for more control.
+There are two ways of extending Ruby, an easier approach using an [FFI](https://en.wikipedia.org/wiki/Foreign_function_interface)
+gem, or compiling and loading a [shared library](https://en.wikipedia.org/wiki/Shared_library) for more
+control.
 
 This post will focus on the compilation method to create C extensions for Ruby on [GNU/Linux](https://stallman-copypasta.github.io/),
 by first creating a simple adder class, and then wrapping raylib to create a [simple window](https://github.com/raysan5/raylib/blob/master/examples/core/core_basic_window.c).
@@ -53,7 +59,6 @@ void Init_sum(void) {
 }
 ```
 
-Wow! that's a lot of weird stuff!  
 Lets break down the file in parts so we can understand what's happening.
 
 The `#include <ruby.h>` allows the usage of the Ruby C API, so we can interact with Ruby within our
@@ -92,7 +97,7 @@ that references to `Object` in Ruby, and then stores the Ruby class into `VALUE 
 - The [`rb_define_singleton_method`](https://github.com/ruby/ruby/blob/c52f4eea564058a8a9865ccc8b2aa6de0c04d156/class.c#L2820)
 is used to create an `add` singleton method for the class `VALUE sumClass`.
 
-All of that to would be the same in Ruby as:
+That C code would be equivalent in Ruby:
 
 ```ruby
 class Sum
@@ -113,8 +118,8 @@ require 'mkmf'
 create_makefile 'sum/sum'
 ```
 
-Since our this example is very simple, there is no need to add more options to compile this extension.
-To generate the Makefile, we need to run the `extconf.rb`
+Since this example is very simple, there is no need to add more options to compile this extension.
+To generate the Makefile, we need to run `extconf.rb`.
 
 ```shell
 $ ruby ext/sum/extconf.rb && \
@@ -186,9 +191,11 @@ $ mkdir -p raylib/ext && \
 3 directories, 5 files
 ```
 
-`ext/window/color.h`
+Lets write the code.
 
 ```c
+// ext/window/color.h
+
 #include <ruby.h>
 #include "raylib.h"
 
@@ -197,9 +204,9 @@ Color get_color(VALUE colorObj);
 VALUE init_color(VALUE super);
 ```
 
-`ext/window/color.c`
-
 ```c
+// ext/window/color.c
+
 #include "color.h"
 
 // Same as:
@@ -250,21 +257,30 @@ into a [`TypedData_Wrap_Struct`](https://docs.ruby-lang.org/en/master/extension_
 but for simplicity, we'll use the helper function `Color get_color(VALUE colorObj)`
 to build a Color struct from the `Raylib::Color` class.
 
-[`rb_iv_set`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/variable.c#L4799)
+Here's some new functions from the C API
+
+- [`rb_iv_set`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/variable.c#L4799)
 sets an instance variable, in that case, sets `@red`, `@green`, `@blue`, and `@alpha`.
 
-[`rb_iv_get`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/variable.c#L4788)
+- [`rb_iv_get`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/variable.c#L4788)
 gets the instance variable from a ruby class.
 
-[`RB_NUM2UINT`](https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/arithmetic/int.h#L185)
+- [`RB_NUM2UINT`](https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/arithmetic/int.h#L185)
 converts a Ruby [Numeric](https://docs.ruby-lang.org/en/master/Numeric.html) into a C `unsigned int`.
 
-[`rb_define_attr`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/include/ruby/internal/method.h#L199)
-defines either an `attr_reader`, or `attr_writer`, depending on the flags passed to `rb_define_attr`.
+- [`rb_define_class_under`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/class.c#L1513)
+creates a new class under the namespace given. In this case, it's `Raylib::Color`.
 
-`ext/window/window.c`
+- [`rb_define_method`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/class.c#L2638)
+creates a new instance method for an object. In this case it's defining the `initialize` method.
+
+- [`rb_define_attr`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/include/ruby/internal/method.h#L199)
+defines either an `attr_reader`, or `attr_writer`, depending on the given flags.
+
 
 ```c
+// ext/window/window.c
+
 #include "color.h"
 // color.h already includes ruby.h and raylib.h,
 // so there is no need for include them here too
@@ -342,9 +358,18 @@ void Init_window(void) {
 }
 ```
 
-`ext/window/extconf.rb`
+I already explained most of the C API calls, so it's just wrapping Raylib API.
+Here's some new calls
+
+- [`StringValueCStr`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/include/ruby/internal/core/rstring.h#L89)
+Creates a new C NULL terminated string from a Ruby string.
+
+- [`rb_define_module`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/include/ruby/internal/module.h#L86)
+Creates a new module, in that case, it creates the `module Raylib`.
 
 ```ruby
+# ext/window/extconf.rb
+
 require 'mkmf'
 
 with_ldflags("-lraylib -lGL -lm -lpthread -ldl -lrt -lX11") { true }
@@ -352,9 +377,11 @@ with_ldflags("-lraylib -lGL -lm -lpthread -ldl -lrt -lX11") { true }
 create_makefile 'window/window'
 ```
 
-`window.rb`
+We need to add some flags to the linker to be able to compile our raylib wrapper.
 
 ```ruby
+# window.rb
+
 require_relative 'window.so'
 
 RAYWHITE = Raylib::Color.new 245, 245, 245, 255
@@ -380,4 +407,23 @@ After compiling and running the `window.rb`, it should open up a window exactly 
 
 ## Wrapping Up
 
-TODO
+In this post, we learned how to create native C Ruby extensions, from creating a brand new one, or
+wrapping an already existing library in C. However, this technique should be only used when the solutions
+in pure Ruby doesn't exists or it lacks the performance to do so, since it add more complexity to
+our projects. Here's some considerations:
+
+1. **Performance vs Complexity**: While C extensions can significaly boost performance, they also
+introduce complexity to the codebase and build systems. Always weights the benefits against the
+potential increase in maintenance and debugging.
+
+2. **Safety and Stability**: C code can lead to memory management issues, such as leaks or
+segmentation faults, which are less common in pure Ruby. Ensure thourough testing and consider
+using tools like [Valgind](https://valgrind.org/docs/manual/quick-start.html) to identify memory issues.
+
+3. **Cross-Platform Compatibility**: Be mindful of the differences on the target platforms when
+compiling your C extension. The [FFI gem](https://github.com/ffi/ffi) can help in this case when
+multiple platforms are needed.
+
+---
+
+All the files in this post are available on [GitHub](https://github.com/jm379/blog/tree/master/posts/1_extending_ruby/src).

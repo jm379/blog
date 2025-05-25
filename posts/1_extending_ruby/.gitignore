@@ -1,4 +1,0 @@
-src/**/Makefile
-src/**/*.o
-src/**/*.so
-src/**/mkmf.log

@@ -12,8 +12,8 @@
   in {
     devShells.${system}.default = pkgs.mkShell {
       buildInputs = [
-        pkgs.ruby_3_4
         pkgs.caddy
+        pkgs.nssTools
       ];
     };
   };

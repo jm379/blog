@@ -71,5 +71,5 @@ void Init_window(void) {
   rb_define_singleton_method(raylibModule, "close_window", close_window, 0);
 
   // Creating a Raylib::Color Class
-  VALUE colorClass = init_color(raylibModule);
+  init_color(raylibModule);
 }
