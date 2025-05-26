@@ -426,4 +426,4 @@ multiple platforms are needed.
 
 ---
 
-All the files in this post are available on [GitHub](https://github.com/jm379/blog/tree/master/posts/1_extending_ruby/src).
+All the files in this post are available on [GitHub](https://github.com/jm379/blog/tree/master/src/1-extending-ruby).
