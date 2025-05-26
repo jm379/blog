@@ -19,7 +19,7 @@ There are two ways of extending Ruby, an easier approach using an [FFI](https://
 gem, or compiling and loading a [shared library](https://en.wikipedia.org/wiki/Shared_library) for more
 control.
 
-This post will focus on the compilation method to create C extensions for Ruby on [GNU/Linux](https://stallman-copypasta.github.io/),
+This post will focus on the compilation method to create C extensions for Ruby on GNU/Linux
 by first creating a simple adder class, and then wrapping raylib to create a [simple window](https://github.com/raysan5/raylib/blob/master/examples/core/core_basic_window.c).
 Every example was created using Ruby `3.4.3`, other versions may not work!.
 
@@ -64,7 +64,6 @@ Lets break down the file in parts so we can understand what's happening.
 The `#include <ruby.h>` allows the usage of the Ruby C API, so we can interact with Ruby within our
 C code.
 
-
 Let's analyze the `add` function:
 
 - The [`VALUE`](https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/value.h#L40)
@@ -79,7 +78,6 @@ is a function that converts a C Integer into a `VALUE`.
 
 So the `VALUE add(VALUE self, VALUE a, VALUE b)` function receives two Ruby objects (`VALUE a` and `VALUE b`),
 converts them to C Integers, adds them, wraps the result into a `VALUE`, and then returns it.
-
 
 Finally, let's analyze the `Init_sum` function:
 
@@ -412,17 +410,19 @@ wrapping an already existing library in C. However, this technique should be onl
 in pure Ruby doesn't exists or it lacks the performance to do so, since it add more complexity to
 our projects. Here's some considerations:
 
-1. **Performance vs Complexity**: While C extensions can significaly boost performance, they also
-introduce complexity to the codebase and build systems. Always weights the benefits against the
-potential increase in maintenance and debugging.
+1. **Complexity**: While C extensions can significaly boost performance, they also
+introduce complexity to the codebase and build systems.
 
-2. **Safety and Stability**: C code can lead to memory management issues, such as leaks or
-segmentation faults, which are less common in pure Ruby. Ensure thourough testing and consider
-using tools like [Valgind](https://valgrind.org/docs/manual/quick-start.html) to identify memory issues.
+2. **Memory Safety**: C code can lead to memory management issues, such as leaks or
+segmentation faults. Consider using tools like [Valgind](https://valgrind.org/docs/manual/quick-start.html)
+to identify memory issues.
 
 3. **Cross-Platform Compatibility**: Be mindful of the differences on the target platforms when
-compiling your C extension. The [FFI gem](https://github.com/ffi/ffi) can help in this case when
-multiple platforms are needed.
+compiling a C extension. 
+
+Some of those can be mitigated by the [FFI gem](https://github.com/ffi/ffi) where it can help in 
+the case when multiple platforms are needed or lower the complexity, because you can write your extension purely in
+Ruby.
 
 ---
 
