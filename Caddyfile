@@ -1,7 +1,9 @@
 {$DOMAIN} {
 	root * posts
 
-	file_server
+	file_server {
+		precompressed
+	}
 
 	templates
 
