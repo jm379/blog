@@ -1,11 +1,11 @@
 :root {
   --bg: hsl(280, 30%, 3%);
   --text: hsl(240, 60%, 95%);
-  --link: hsl(185, 95%, 50%);
+  --link: #89b4fa;
   --font: monospace; 
 
   --pre-bg: #1e1e2e;
-  --code-bg: hsl(245, 10%, 20%);
+  --code-bg: #1e1e2e;
 }
 
 body {
@@ -49,7 +49,6 @@ pre {
   border-radius: 1rem;
 
   code {
-    background-color: revert;
     padding: revert;
     border-radius: revert;
   }
