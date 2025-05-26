@@ -15,6 +15,10 @@
         pkgs.caddy
         pkgs.nssTools
       ];
+
+      shellHook = ''
+        export DOMAIN=:3000
+      '';
     };
   };
 }

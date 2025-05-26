@@ -1,11 +1,11 @@
-:3000 {
-  root * posts
+{$DOMAIN} {
+	root * posts
 
-  file_server
+	file_server
 
-  templates
+	templates
 
-  encode zstd gzip
+	encode zstd gzip
 
-  try_files {path} index.html
+	try_files {path} index.html
 }
