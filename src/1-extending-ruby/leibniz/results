@@ -1,0 +1,14 @@
+ruby 3.4.3 (2025-04-14 revision d0b7e5b6a0) +YJIT +PRISM [x86_64-linux]
+Warming up --------------------------------------
+                ruby     1.000 i/100ms
+                   c     1.000 i/100ms
+                simd     4.000 i/100ms
+Calculating -------------------------------------
+                ruby      0.308 (± 0.0%) i/s     (3.24 s/i) -      2.000 in   6.486233s
+                   c     10.954 (± 0.0%) i/s   (91.29 ms/i) -     55.000 in   5.020908s
+                simd     43.801 (± 0.0%) i/s   (22.83 ms/i) -    220.000 in   5.022762s
+
+Comparison:
+                simd:       43.8 i/s
+                   c:       11.0 i/s - 4.00x  slower
+                ruby:        0.3 i/s - 142.05x  slower
