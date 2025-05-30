@@ -4,24 +4,176 @@ title: Extending Ruby
 date: 2025-05-24
 ---
 
-## Introduction
+Ruby is a great programming language, known for its developer-friendly sintax, flexibility with [metaprogramming](https://en.wikipedia.org/wiki/Metaprogramming),
+and especially, [Rails](https://rubyonrails.org/). Over the last few years, it has gained some significant
+features in terms of performance, such as the native Ruby parser [PRISM](https://github.com/ruby/prism)
+and the use of Rust on its just-in-time compiler [YJIT](https://docs.ruby-lang.org/en/master/yjit/yjit_md.html),
+just to name a few!
 
-Ruby is a great programming laguage, known for its developer friendliness and fast development.
-Unfortunately that comes with a performance cost, although with its recents improvements, like the native Ruby parser
-[PRISM](https://github.com/ruby/prism), or using Rust on its just in time compiler [YJIT](https://github.com/ruby/ruby/blob/master/doc/yjit/yjit.md).
+However, there are times when you need to push performance beyond what Ruby is capable of, such as 
+using [SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data), using a library like [raylib](https://github.com/raysan5/raylib),
+or even using plain C for its performance benefits. In these cases, extending Ruby can be the perfect solution.
 
-However, there are times when you have to push the performance further, like adding [SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data),
-or maybe there's a library with C binding, like [raylib](https://github.com/raysan5/raylib), 
-or even integrating with Large Language Models, and extending Ruby can be the perfect solution.
+The Ruby MRI (Matz's Ruby Interpreter, also known as CRuby) implementation provides a C API to extend its capabilities.
+There are two primary methods for extending Ruby: a simpler approach using a [FFI](https://en.wikipedia.org/wiki/Foreign_function_interface)
+gem or compiling a [shared library](https://en.wikipedia.org/wiki/Shared_library).
 
-The Ruby MRI (Matz's Ruby Interpreter or CRuby) implementation provides a C API to extend its capabilities.
-There are two ways of extending Ruby, an easier approach using an [FFI](https://en.wikipedia.org/wiki/Foreign_function_interface)
-gem, or compiling and loading a [shared library](https://en.wikipedia.org/wiki/Shared_library) for more
-control.
+This post will primarily focus on the compilation method, with an example using FFI to create extensions
+for Ruby on GNU/Linux. All examples were created using Ruby `3.4.3`; other versions may not be compatible.
 
-This post will focus on the compilation method to create C extensions for Ruby on GNU/Linux
-by first creating a simple adder class, and then wrapping raylib to create a [simple window](https://github.com/raysan5/raylib/blob/master/examples/core/core_basic_window.c).
-Every example was created using Ruby `3.4.3`, other versions may not work!.
+## Leibniz
+
+The [Leibniz formula for *π*](https://en.wikipedia.org/wiki/Leibniz_formula_for_%CF%80) is a simple
+mathematical series that expresses *π* as an infinite sum. It's derived from the [Taylor series](https://en.wikipedia.org/wiki/Taylor_series)
+expansion of the arctangent function, and is given by the formula:
+
+<math display="block">
+  <mfrac>
+    <mi>π</mi>
+    <mn>4</mn>
+  </mfrac>
+  <mo>=</mo>
+  <mn>1</mn>
+  <mo>-</mo>
+  <mfrac>
+    <mn>1</mn>
+    <mn>3</mn>
+  </mfrac>
+  <mo>+</mo>
+  <mfrac>
+    <mn>1</mn>
+    <mn>5</mn>
+  </mfrac>
+  <mo>-</mo>
+  <mfrac>
+    <mn>1</mn>
+    <mn>7</mn>
+  </mfrac>
+  <mo>+</mo>
+  <mfrac>
+    <mn>1</mn>
+    <mn>9</mm>
+  </mfrac>
+  <mo lspace="0.2em" form="postfix">⋯</mo>
+</math>
+
+<math display="block">
+  <mfrac>
+    <mi>π</mi>
+    <mn>4</mn>
+  </mfrac>
+  <mo>=</mo>
+  <munderover>
+    <mo>∑</mo>
+    <mrow>
+      <mi>n</mi>
+      <mo>=</mo>
+      <mn>0</mn>
+    </mrow>
+    <mrow>
+      <mo form="prefix">+</mo>
+      <mn>∞</mn>
+    </mrow>
+  </munderover>
+  <mfrac>
+    <msup>
+      <mrow>
+        <mo>(</mo>
+        <mo form="prefix">-</mo>
+        <mn>1</mi>
+        <mo>)</mo>
+      </mrow>
+      <mi>n</mi>
+    </msup>
+    <mrow>
+      <mn>2</mn>
+      <mo></mo>
+      <mi>n</mi>
+      <mo>+</mo>
+      <mn>1</mn>
+    </mrow>
+  </mfrac>
+</math>
+
+This series converges to *π* by alternating between adding and subtracting fractions, where each term
+represents a progressively smaller contribution to the total. Here is an implementation in Ruby
+
+```ruby
+require 'benchmark'
+
+def leibniz(n)
+  signal = -1.0
+  pi = 0.0
+
+  n.times do
+    signal = -signal
+    pi += signal / (2 * it + 1)
+  end
+
+  pi * 4
+end
+
+Benchmark.bm do
+  it.report('Ruby') { leibniz(100_000_000) }
+end
+#
+#           user     system      total        real
+# Ruby  2.887397   0.000000   2.887397 (  2.895165)
+```
+
+The Leibniz formula is very straightforward to understand and implement, but its convergence is extremely
+slow. It requires an enormous amount of terms to calculate a decent amount of decimal places of *π* accurately.
+
+The benchmark result was obtained on an [AMD Ryzen 5900X](https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-9-5900x.html),
+a 12 core CPU, and it still took almost 3 seconds to calculate 100 million terms, while it took near 6.1
+seconds without YJIT enabled!
+
+Let’s compare the performance of the C version of the Leibniz formula for *π*, as C is known for its 
+efficiency and speed. This comparison will illustrate how Ruby performs in contrast.
+
+```c
+#include <stddef.h>
+
+double leibniz(size_t n) {
+  double pi = 0.0;
+  double signal = -1.0;
+
+  for (unsigned int i = 0; i < n; ++i) {
+    signal = -signal;
+    pi += signal / (2 * i + 1);
+  }
+
+  return pi * 4.0;
+}
+
+int main(void) {
+  leibniz(100000000);
+
+  return 0;
+}
+
+// $ gcc -o leibniz leibniz.c && \
+//     time ./leibniz
+// 0,09s user 0,00s system 99% cpu 0,094 total
+```
+
+Based on the benchmark results, the C implementation executed in approximately in 0.094 seconds, while
+the Ruby implementation took 2.89 seconds, making it 30 times slower, and 64 times slower without YJIT! Most
+of this difference comes from the fact that Ruby is a [garbage-collected](https://en.wikipedia.org/wiki/Garbage_collection_%28computer_science%29)
+and [dynamically typed](https://en.wikipedia.org/wiki/Dynamic_programming_language) language, which incurs
+in additional overhead.
+
+---
+
+TODO:
+
+- Add SIMD to show improvements
+- Show a benchmark between implementations
+- Mention the hidden issue with floating points and SIMD accuracy
+- Replace this section with the adder class?
+
+---
+
 
 ## Let's Add
 
@@ -168,7 +320,7 @@ Sum.add 2, 3 # => 5
 
 ## Windows Time
 
-Time for a more complex task, building a window using raylib. First we need to 
+Time for a more complex task, building a [window](https://github.com/raysan5/raylib/blob/master/examples/core/core_basic_window.c) using raylib. First we need to 
 [build it](https://github.com/raysan5/raylib/wiki/Working-on-GNU-Linux),
 then, let's create the directories and files needed.
 

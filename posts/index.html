@@ -24,7 +24,7 @@
 <body>
   <header><h1>{{ $title }}</h1></header>
   <main>
-    <p id="date"><b>{{ $date | date "2006-01-02" }}</b></p>
+    <p id="date"><b>{{ $date | date "Jan 02, 2006" }}</b></p>
     <article>{{ markdown $markdownFile.Body }}</article>
   </main>
 
