@@ -96,7 +96,9 @@ expansion of the arctangent function, and is given by the formula:
 </math>
 
 This series converges to *π* by alternating between adding and subtracting fractions, where each term
-represents a progressively smaller contribution to the total. Here is an implementation in Ruby
+represents a progressively smaller contribution to the total. The Leibniz formula is very straightforward to understand and implement, but its convergence is extremely
+slow. It requires an enormous amount of terms to calculate a decent amount of decimal places of *π*
+accurately. Here is an implementation in Ruby
 
 ```ruby
 require 'benchmark'
@@ -121,8 +123,7 @@ end
 # Ruby  2.887397   0.000000   2.887397 (  2.895165)
 ```
 
-The Leibniz formula is very straightforward to understand and implement, but its convergence is extremely
-slow. It requires an enormous amount of terms to calculate a decent amount of decimal places of *π* accurately.
+
 
 The benchmark result was obtained on an [AMD Ryzen 5900X](https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-9-5900x.html),
 a 12 core CPU, and it still took almost 3 seconds to calculate 100 million terms, while it took near 6.1
