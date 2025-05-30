@@ -17,15 +17,15 @@ module Leibniz
 
   module Ruby
     def self.calc(n)
-      sig = -1.0
+      signal = -1.0
       pi = 0.0
 
       n.times do
-        sig = -sig
-        pi += sig / (2 * it + 1)
+        signal = -signal
+        pi += signal / (2 * it + 1)
       end
 
-      pi * 4
+      pi * 4.0
     end
   end
 end

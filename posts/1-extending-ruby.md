@@ -110,7 +110,7 @@ def leibniz(n)
     pi += signal / (2 * it + 1)
   end
 
-  pi * 4
+  pi * 4.0
 end
 
 Benchmark.bm do
