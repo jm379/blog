@@ -9,9 +9,9 @@ ROUNDS = 100_000_000
 RubyVM::YJIT.enable
 
 Benchmark.ips do
-  it.report(:ruby) { Leibniz::Ruby.calc ROUNDS }
   it.report(:c) { Leibniz::C.calc ROUNDS }
   it.report(:simd) { Leibniz::SIMD.calc ROUNDS }
+  it.report(:ruby) { Leibniz::Ruby.calc ROUNDS }
 
   it.compare!
 end

@@ -1,6 +1,6 @@
 require 'mkmf'
 
-append_cflags %w[-O3 -march=native]
+append_cflags %w[-mavx2 -mfma]
 have_macro '__AVX2__'
 have_header 'immintrin.h'
 

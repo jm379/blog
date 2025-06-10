@@ -31,9 +31,9 @@ double simd(size_t n) {
     idx_vector = _mm256_add_pd(idx_vector, four_vector);
   }
 
-  pi += result_vector[0] +
-        result_vector[1] +
-        result_vector[2] +
-        result_vector[3];
+  double temp[4];
+  _mm256_storeu_pd(temp, result_vector);
+  pi = temp[0] + temp[1] + temp[2] + temp[3];
+
   return pi * 4.0;
 }
