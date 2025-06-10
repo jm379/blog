@@ -96,9 +96,10 @@ expansion of the arctangent function, and is given by the formula:
 </math>
 
 This series converges to *π* by alternating between adding and subtracting fractions, where each term
-represents a progressively smaller contribution to the total. The Leibniz formula is very straightforward to understand and implement, but its convergence is extremely
-slow. It requires an enormous amount of terms to calculate a decent amount of decimal places of *π*
-accurately. Here is an implementation in Ruby
+represents a progressively smaller contribution to the total. The Leibniz formula is very straightforward
+to understand and implement, but its convergence is extremely slow. It requires an enormous amount of
+terms to calculate a decent amount of decimal places of *π* accurately.  
+Here is an implementation in Ruby
 
 ```ruby
 require 'benchmark'
@@ -123,13 +124,11 @@ end
 # Ruby  2.887397   0.000000   2.887397 (  2.895165)
 ```
 
-
-
 The benchmark result was obtained on an [AMD Ryzen 5900X](https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-9-5900x.html),
-a 12 core CPU, and it still took almost 3 seconds to calculate 100 million terms, while it took near 6.1
-seconds without YJIT enabled!
+a 12 core CPU, and it still took almost 3 seconds to calculate 100 million terms, and without YJIT enabled,
+it took near 6.1 seconds!
 
-Let’s compare the performance of the C version of the Leibniz formula for *π*, as C is known for its 
+Let's compare the performance of the C version of the Leibniz formula for *π*, as C is known for its 
 efficiency and speed. This comparison will illustrate how Ruby performs in contrast.
 
 ```c
@@ -160,23 +159,66 @@ int main(void) {
 
 Based on the benchmark results, the C implementation executed in approximately in 0.094 seconds, while
 the Ruby implementation took 2.89 seconds, making it 30 times slower, and 64 times slower without YJIT! Most
-of this difference comes from the fact that Ruby is a [garbage-collected](https://en.wikipedia.org/wiki/Garbage_collection_%28computer_science%29)
+of this difference comes from the fact that Ruby is a [interpreted](https://en.wikipedia.org/wiki/Interpreter_(computing)),
+[garbage-collected](https://en.wikipedia.org/wiki/Garbage_collection_%28computer_science%29)
 and [dynamically typed](https://en.wikipedia.org/wiki/Dynamic_programming_language) language, which incurs
-in additional overhead.
+in additional overhead by having to keep track of every memory allocation, transforming between Ruby types
+and C types and having to interpret and run line by line of code.
 
----
+There still room for improvements in the C code. By applying SIMD techniques, we can theoretically
+enhance performance by up to four times. Let's compare the implementation with the SIMD version and
+examine the differences between them.
 
-TODO:
+```c
+#include <immintrin.h>
 
-- Add SIMD to show improvements
-- Show a benchmark between implementations
-- Mention the hidden issue with floating points and SIMD accuracy
-- Replace this section with the adder class?
+double leibniz_simd(size_t n) {
+  double pi = 0.0;
 
----
+  __m256d signal_vector = _mm256_set_pd(1.0, -1.0, 1.0, -1.0);
+  __m256d one_vector = _mm256_set1_pd(1.0);
+  __m256d two_vector = _mm256_set1_pd(2.0);
+  __m256d four_vector = _mm256_set1_pd(4.0);
+  __m256d result_vector = _mm256_setzero_pd();
+  __m256d sum_vector = _mm256_setzero_pd();
+  __m256d idx_vector = _mm256_set_pd(0.0, 1.0, 2.0, 3.0);
+
+  for(unsigned int i = 0; i < n; i += 4) {
+    sum_vector = _mm256_fmadd_pd(two_vector, idx_vector, one_vector);
+    sum_vector = _mm256_div_pd(signal_vector, sum_vector);
+
+    result_vector = _mm256_add_pd(result_vector, sum_vector);
+    idx_vector = _mm256_add_pd(idx_vector, four_vector);
+  }
+
+  double temp[4];
+  _mm256_storeu_pd(temp, result_vector);
+  pi = temp[0] + temp[1] + temp[2] + temp[3];
+
+  return pi * 4.0;
+}
+
+int main(void) {
+  leibniz_simd(100000000);
+
+  return 0;
+}
+
+// $ gcc -mavx2 -mfma -o leibniz-simd leibniz-simd.c && \
+//     time ./leibniz-simd
+// 0,02s user 0,00s system 98% cpu 0,025 total
 
 
-## Let's Add
+```
+
+The performance achieved by using SIMD is approximately 3.75 times faster than a straightforward
+implementation in C and an impressive 115 times faster than pure Ruby! These results clearly demonstrate
+the potential for significantly enhancing Ruby's performance.
+
+Now that we've seen the potential gains from using C, let's explore how we can use it to elevate Ruby
+to a new level.
+
+## Extension
 
 First and foremost, we have to be confortable with reading and writing C,
 and then, get familiar with the [C API](https://docs.ruby-lang.org/en/master/extension_rdoc.html).
@@ -520,15 +562,18 @@ Creates a new module, in that case, it creates the `module Raylib`.
 
 ```ruby
 # ext/window/extconf.rb
-
 require 'mkmf'
 
-with_ldflags("-lraylib -lGL -lm -lpthread -ldl -lrt -lX11") { true }
+append_ldflags %w[-lraylib -lGL -lm -lpthread -ldl -lrt -lX11]
+have_header 'raylib.h'
 
 create_makefile 'window/window'
 ```
 
-We need to add some flags to the linker to be able to compile our raylib wrapper.
+We need to add some flags to the linker to be able to compile our raylib wrapper, and also a validator
+to check if we have access to the raylib library.
+
+Now let's use it after compiling the extension
 
 ```ruby
 # window.rb
