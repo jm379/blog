@@ -220,7 +220,7 @@ int main(void) {
 // 0,02s user 0,00s system 98% cpu 0,025 total
 ```
 
-The performance achieved by using SIMD is approximately 3.75 times faster than a straightforward
+The performance achieved by using SIMD is approximately 3.75 times faster than the straightforward
 implementation in C and an impressive 115 times faster (223 times without YJIT) than pure Ruby! 
 
 Now that we've seen the potential gains from using C, let's explore how we can use it to elevate Ruby
@@ -278,13 +278,14 @@ Let's break down the file in parts so we can understand what's happening.
 The `#include <ruby.h>` allows the usage of the Ruby C API, so we can interact with Ruby within our
 C code.
 
-Let's analyze the `calc` function:
+In the `calc` function we have:
 
 - The [`VALUE`](https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/value.h#L40)
 is an `uintptr_t`, an unsigned integer that can be used as a pointer, and it represents a Ruby Object,
 so it could be an Integer, Array, File, etc...
 
-- The `VALUE self` is contains the object that the method is bound to.
+- The `VALUE self` is the object that the method is bound to. In this case it should be the `Leibniz` module
+that is defined below.
 
 - The [`RB_NUM2SIZE`](https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/arithmetic/size_t.h#L47)
 is a function that converts a Ruby [`Numeric`](https://docs.ruby-lang.org/en/master/Numeric.html)
@@ -294,25 +295,25 @@ to a C `size_t`. It's an "alias" for [`RB_NUM2ULONG`](https://github.com/ruby/ru
 is a function that converts a C double into a Ruby `Numeric`.
 
 So the `VALUE calc(VALUE self, VALUE times)` function receives two Ruby objects
-(`VALUE self` and `VALUE times`), converts the `times` to a C unsigned integer, calculates the Leibniz 
-formula, and then wraps and return the result into a `VALUE`.
+(`VALUE self` and `VALUE times`), converts the `times` into `size_t`, calculates the Leibniz 
+formula, and then wraps and return the result into a `Numeric` `VALUE`.
 
-And finally, let's analyze the `Init_leibniz` function:
+The function `void Init_leibniz(void)` is the entrypoint of our extension. By CRuby convention,
+It should always be named like `Init_<extension_name>`.
 
-- The function `void Init_leibniz(void)` is the entrypoint of our extension. It should always be named like
-`Init_<extension_name>`.
+In the `Init_leibniz` function we have:
 
 - The [`rb_define_module`](https://github.com/ruby/ruby/blob/c52f4eea564058a8a9865ccc8b2aa6de0c04d156/class.c#L1600)
 function is used to create a [Module](https://docs.ruby-lang.org/en/master/Module.html) object in Ruby, 
-it expects the name of the module, it automatically sets the superclass as a [`Namespace`](https://docs.ruby-lang.org/en/master/namespace_md.html)
-if its defined, otherwise to [`Object`](https://docs.ruby-lang.org/en/master/Object.html).
+it expects the name of the module and it automatically sets the superclass as the [`Namespace`](https://docs.ruby-lang.org/en/master/namespace_md.html)
+Object if its defined, otherwise to [`Object`](https://docs.ruby-lang.org/en/master/Object.html).
 
 
 - The `VALUE leibnizModule = rb_define_module("Leibniz");` creates a module `Leibniz`, and then stores
 the Ruby Module into `VALUE leibnizModule`.
 
 - The [`rb_define_singleton_method`](https://github.com/ruby/ruby/blob/c52f4eea564058a8a9865ccc8b2aa6de0c04d156/class.c#L2820)
-is used to create a `calc` singleton method for the class `VALUE leibnizModule`.
+is used to create a `calc` singleton method for the module `VALUE leibnizModule`.
 
 That C code would be equivalent in Ruby:
 
@@ -343,7 +344,7 @@ create_makefile 'leibniz/leibniz'
 ```
 
 Since this example is very simple, there is no need to add more options to compile this extension.
-To generate the Makefile, we need to run `extconf.rb`.
+To generate the Makefile, we need to run the `extconf.rb` file.
 
 ```shell
 $ ruby ext/leibniz/extconf.rb && \
@@ -360,7 +361,7 @@ creating Makefile
 3 directories, 3 files
 ```
 
-That will create a Makefile in the current directory. Now we just need to compile using `make`. The
+This will create a Makefile in the current directory. Now we just need to compile using `make`. The
 Makefile will create two files in our current directory, `leibniz.o` and `leibniz.so`.
 Only the `leibniz.so` is important for us.
 
@@ -382,8 +383,9 @@ linking shared-object leibniz/leibniz.so
 3 directories, 5 files
 ```
 
-Done. We created our first C shared library that can be used directly in Ruby!
-To use the `leibniz.so` it only needs to be required as `require_relative 'leibniz'`. Here is an example
+We created our first C shared library that can be used directly in Ruby!
+To use the `leibniz.so` it only needs to be required as `require_relative 'leibniz'`. Here's an example
+using `irb`:
 
 ```ruby
 require_relative 'leibniz'
@@ -476,7 +478,7 @@ VALUE init_color(VALUE super) {
 }
 ```
 
-We could have wrapped the [Raylib Color struct](https://github.com/raysan5/raylib/blob/8d9c1cecb7f53aef720e2ee0d1558ffc39fa7eef/src/raylib.h#L247)
+We could've wrapped the [Raylib Color struct](https://github.com/raysan5/raylib/blob/8d9c1cecb7f53aef720e2ee0d1558ffc39fa7eef/src/raylib.h#L247)
 into a [`TypedData_Wrap_Struct`](https://docs.ruby-lang.org/en/master/extension_rdoc.html#label-C+struct+to+Ruby+object),
 but for simplicity, we'll use a helper function `Color get_color(VALUE colorObj)`
 to build a Color struct from the `Raylib::Color` class.
@@ -484,7 +486,7 @@ to build a Color struct from the `Raylib::Color` class.
 Here's some new functions from the C API
 
 - [`rb_iv_set`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/variable.c#L4799)
-sets an instance variable, in that case, sets `@red`, `@green`, `@blue`, and `@alpha`.
+sets an instance variable, in that case `@red`, `@green`, `@blue`, and `@alpha`.
 
 - [`rb_iv_get`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/variable.c#L4788)
 gets the instance variable from a ruby class.
@@ -493,13 +495,14 @@ gets the instance variable from a ruby class.
 converts a Ruby [Numeric](https://docs.ruby-lang.org/en/master/Numeric.html) into a C `unsigned int`.
 
 - [`rb_define_class_under`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/class.c#L1513)
-creates a new class under the namespace given. In this case, it's `Raylib::Color`.
+creates a new class under the given superclass. In this example, it's going to be `Raylib::Color`.
 
 - [`rb_define_method`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/class.c#L2638)
 creates a new instance method for an object. In this case it's defining the `initialize` method.
 
 - [`rb_define_attr`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/include/ruby/internal/method.h#L199)
-defines either an `attr_reader`, or `attr_writer`, depending on the given flags.
+defines either an `attr_reader`, or `attr_writer`, depending on the given flags. It's defining both in this
+case.
 
 
 ```c
@@ -582,17 +585,15 @@ void Init_window(void) {
 }
 ```
 
-I already explained most of the C API calls, so it's just wrapping Raylib API.
-Here's some new calls
+Most of the C API calls were already explained, so it's just wrapping Raylib API.
+Here's the only new call:
 
 - [`StringValueCStr`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/include/ruby/internal/core/rstring.h#L89)
-Creates a new C NULL terminated string from a Ruby string.
-
-- [`rb_define_module`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/include/ruby/internal/module.h#L86)
-Creates a new module, in that case, it creates the `module Raylib`.
+Creates a new C `NULL` terminated string from a Ruby string.
 
 ```ruby
 # ext/window/extconf.rb
+
 require 'mkmf'
 
 append_ldflags %w[-lraylib -lGL -lm -lpthread -ldl -lrt -lX11]
@@ -601,10 +602,10 @@ have_header 'raylib.h'
 create_makefile 'window/window'
 ```
 
-We need to add some flags to the linker to be able to compile our raylib wrapper, and also, it's a good
-idea to add a validator to check if we have access to the raylib library in our system.
+We need to add some flags to the linker to be able to compile our raylib wrapper, and it's a good idea to
+add a validator to check if we have access to the raylib library in our system.
 
-Now let's use it after compiling the extension
+Time to use our wrapped library:
 
 ```ruby
 # window.rb
@@ -629,29 +630,30 @@ Raylib.close_window
 exit 0
 ```
 
-After compiling and running the `window.rb`, it should open up a window exactly as the
+This should open up a window exactly as the
 [example from raylib](https://www.raylib.com/examples/core/loader.html?name=core_basic_window).
 
 ## Wrapping Up
 
-In this post, we learned how to create native C Ruby extensions, from creating a brand new one, or
+In this post, we've learned how to create native C Ruby extensions, from creating a brand new one, to
 wrapping an already existing library in C. However, this technique should be only used when the solutions
-in pure Ruby doesn't exists or it lacks the performance to do so, since it add more complexity to
-our projects. Here's some considerations:
+in pure Ruby doesn't exists or it lacks the performance to do so, since it adds more complexity to
+our projects. Here're some considerations:
 
-1. **Complexity**: While C extensions can significaly boost performance, they also
-introduce complexity to the codebase and build systems.
+1. **Complexity**: While C extensions can significaly boost performance, they also introduce complexity 
+to the codebase and build systems by introducing another language.
 
 2. **Memory Safety**: C code can lead to memory management issues, such as leaks or
 segmentation faults. Consider using tools like [Valgind](https://valgrind.org/docs/manual/quick-start.html)
 to identify memory issues.
 
 3. **Cross-Platform Compatibility**: Be mindful of the differences on the target platforms when
-compiling a C extension. 
+compiling a C extension, like [musl](https://musl.libc.org) and [glibc](https://www.gnu.org/software/libc);
+aarch64 and x86_64; linux, windows and macOS.
 
-Some of those can be mitigated by the [FFI gem](https://github.com/ffi/ffi) where it can help in 
-the case when multiple platforms are needed or lower the complexity, because you can write your extension purely in
-Ruby.
+Some of those issues can be mitigated by using a [FFI gem](https://github.com/ffi/ffi) where it can
+help in the case when multiple platforms are needed or lower the complexity in the codebase,
+because you can write your extension purely in Ruby.
 
 ---
 
