@@ -3,7 +3,6 @@ WORKDIR /app
 RUN apk --no-cache add build-base
 COPY . .
 RUN ruby ./ext/leibniz/extconf.rb && \
-  make && \
-  bundle install
-  
-CMD ["ruby", "benchmark.rb"]
+  make
+
+CMD ["ruby", "leibniz.rb"]

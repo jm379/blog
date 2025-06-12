@@ -18,8 +18,8 @@ The Ruby MRI (Matz's Ruby Interpreter, also known as CRuby) implementation provi
 There are two primary methods for extending Ruby: a simpler approach using a [FFI](https://en.wikipedia.org/wiki/Foreign_function_interface)
 gem or compiling a [shared library](https://en.wikipedia.org/wiki/Shared_library).
 
-This post will primarily focus on the compilation method, with an example using FFI to create extensions
-for Ruby on GNU/Linux. All examples were created using Ruby `3.4.3`; other versions may not be compatible.
+This post will primarily focus on the compilation method to create extensions for Ruby on GNU/Linux.
+All examples were created using Ruby `3.4.3`, other versions may not be compatible.
 
 ## Leibniz
 
@@ -95,13 +95,15 @@ expansion of the arctangent function, and is given by the formula:
   </mfrac>
 </math>
 
-This series converges to *π* by alternating between adding and subtracting fractions, where each term
+This series converges to *π*/4 by alternating between adding and subtracting fractions, where each term
 represents a progressively smaller contribution to the total. The Leibniz formula is very straightforward
 to understand and implement, but its convergence is extremely slow. It requires an enormous amount of
 terms to calculate a decent amount of decimal places of *π* accurately.  
-Here is an implementation in Ruby
+Here is an implementation of the formula in Ruby
 
 ```ruby
+# leibniz.rb
+
 require 'benchmark'
 
 def leibniz(n)
@@ -119,19 +121,26 @@ end
 Benchmark.bm do
   it.report('Ruby') { leibniz(100_000_000) }
 end
-#
+
+# $ ruby --yjit leibniz.rb
 #           user     system      total        real
 # Ruby  2.887397   0.000000   2.887397 (  2.895165)
+
+# $ ruby leibniz.rb
+#           user     system      total        real
+# Ruby  5.563026   0.000000   5.563026 (  5.580288)
 ```
 
 The benchmark result was obtained on an [AMD Ryzen 5900X](https://www.amd.com/en/products/processors/desktops/ryzen/5000-series/amd-ryzen-9-5900x.html),
-a 12 core CPU, and it still took almost 3 seconds to calculate 100 million terms, and without YJIT enabled,
-it took near 6.1 seconds!
+a 12 core CPU, and it still took 2.89 seconds to calculate 100 million terms, and without YJIT enabled,
+it took 5.58 seconds!
 
 Let's compare the performance of the C version of the Leibniz formula for *π*, as C is known for its 
 efficiency and speed. This comparison will illustrate how Ruby performs in contrast.
 
 ```c
+// leibniz.c
+
 #include <stddef.h>
 
 double leibniz(size_t n) {
@@ -158,7 +167,7 @@ int main(void) {
 ```
 
 Based on the benchmark results, the C implementation executed in approximately in 0.094 seconds, while
-the Ruby implementation took 2.89 seconds, making it 30 times slower, and 64 times slower without YJIT! Most
+the Ruby implementation took 2.89 seconds, making it 30 times slower, and 59 times slower without YJIT! Most
 of this difference comes from the fact that Ruby is a [interpreted](https://en.wikipedia.org/wiki/Interpreter_(computing)),
 [garbage-collected](https://en.wikipedia.org/wiki/Garbage_collection_%28computer_science%29)
 and [dynamically typed](https://en.wikipedia.org/wiki/Dynamic_programming_language) language, which incurs
@@ -170,6 +179,8 @@ enhance performance by up to four times. Let's compare the implementation with t
 examine the differences between them.
 
 ```c
+// leibniz-simd.c
+
 #include <immintrin.h>
 
 double leibniz_simd(size_t n) {
@@ -207,165 +218,185 @@ int main(void) {
 // $ gcc -mavx2 -mfma -o leibniz-simd leibniz-simd.c && \
 //     time ./leibniz-simd
 // 0,02s user 0,00s system 98% cpu 0,025 total
-
-
 ```
 
 The performance achieved by using SIMD is approximately 3.75 times faster than a straightforward
-implementation in C and an impressive 115 times faster than pure Ruby! These results clearly demonstrate
-the potential for significantly enhancing Ruby's performance.
+implementation in C and an impressive 115 times faster (223 times without YJIT) than pure Ruby! 
 
 Now that we've seen the potential gains from using C, let's explore how we can use it to elevate Ruby
 to a new level.
 
-## Extension
+## Leibniz extension
 
-First and foremost, we have to be confortable with reading and writing C,
-and then, get familiar with the [C API](https://docs.ruby-lang.org/en/master/extension_rdoc.html).
+Before we start, we have to be confortable with reading and writing C, and then, get familiar with 
+the [C API](https://docs.ruby-lang.org/en/master/extension_rdoc.html).
 
-Every extension should be located in the `./ext/<extension_name>/<extension_name>.c` directory.
-Knowing that, lets create the directory structure and the file needed.
+Every extension should be located in the `ext/<extension_name>/<extension_name>.c` directory and have
+a sibling file `extconf.rb` that is used to create a `Makefile` needed to compile the extension.
+Let's create the directory structure and the files needed.
 
 ```shell
-$ mkdir -p ./sum/ext/sum && \
-    cd sum && \
-    touch ext/sum/sum.c && \
+$ mkdir -p leibniz/ext/leibniz && \
+    cd leibniz && \
+    touch ext/leibniz/leibniz.c ext/leibniz/extconf.rb && \
     tree
 .
 └── ext
-   └── sum
-       └── sum.c
+   └── leibniz
+       ├── extconf.rb
+       └── leibniz.c
 
-3 directories, 1 file
+3 directories, 2 file
 ```
 
-Now open your favorite editor and add these contents to the `sum.c` file.
+Now open your favorite editor and add these contents to the `leibniz.c` file.
 
 ```c
-#include <ruby.h>
+// leibniz.c
 
-static VALUE add(VALUE self, VALUE a, VALUE b) {
-  return RB_INT2FIX(RB_FIX2INT(a) + RB_FIX2INT(b));
+VALUE calc(VALUE self, VALUE times) {
+  size_t n = RB_NUM2SIZE(times);
+  double pi = 0.0;
+  double signal = -1.0;
+
+  for(unsigned int i = 0; i < n; ++i) {
+    signal = -signal;
+    pi += signal / (2 * i + 1);
+  }
+
+  return DBL2NUM(pi * 4.0);
 }
 
-void Init_sum(void) {
-  VALUE sumClass = rb_define_class("Sum", rb_cObject);
-  rb_define_singleton_method(sumClass, "add", add, 2);
+void Init_leibniz(void) {
+  VALUE leibnizModule = rb_define_module("Leibniz");
+  rb_define_singleton_method(leibnizModule, "calc", calc, 1);
 }
 ```
 
-Lets break down the file in parts so we can understand what's happening.
+Let's break down the file in parts so we can understand what's happening.
 
 The `#include <ruby.h>` allows the usage of the Ruby C API, so we can interact with Ruby within our
 C code.
 
-Let's analyze the `add` function:
+Let's analyze the `calc` function:
 
 - The [`VALUE`](https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/value.h#L40)
 is an `uintptr_t`, an unsigned integer that can be used as a pointer, and it represents a Ruby Object,
 so it could be an Integer, Array, File, etc...
 
-- The [`RB_FIX2INT`](https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/arithmetic/int.h#L129)
-is a function that converts a `VALUE` to a C Integer.
+- The `VALUE self` is contains the object that the method is bound to.
 
-- The [`RB_INT2FIX`](https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/arithmetic/long.h#L111)
-is a function that converts a C Integer into a `VALUE`.
+- The [`RB_NUM2SIZE`](https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/arithmetic/size_t.h#L47)
+is a function that converts a Ruby [`Numeric`](https://docs.ruby-lang.org/en/master/Numeric.html)
+to a C `size_t`. It's an "alias" for [`RB_NUM2ULONG`](https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/arithmetic/long.h#L293).
 
-So the `VALUE add(VALUE self, VALUE a, VALUE b)` function receives two Ruby objects (`VALUE a` and `VALUE b`),
-converts them to C Integers, adds them, wraps the result into a `VALUE`, and then returns it.
+- The [`DBL2NUM`](https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/arithmetic/double.h#L29)
+is a function that converts a C double into a Ruby `Numeric`.
 
-Finally, let's analyze the `Init_sum` function:
+So the `VALUE calc(VALUE self, VALUE times)` function receives two Ruby objects
+(`VALUE self` and `VALUE times`), converts the `times` to a C unsigned integer, calculates the Leibniz 
+formula, and then wraps and return the result into a `VALUE`.
 
-- The function `void Init_sum(void)` is the entrypoint of our extension. It should always be named like
+And finally, let's analyze the `Init_leibniz` function:
+
+- The function `void Init_leibniz(void)` is the entrypoint of our extension. It should always be named like
 `Init_<extension_name>`.
 
-- The [`rb_define_class`](https://github.com/ruby/ruby/blob/c52f4eea564058a8a9865ccc8b2aa6de0c04d156/class.c#L1481)
-function is used to create a class Object in Ruby, it expects the name of the class, and its superclass.
-Every object **must** have a superclass.
+- The [`rb_define_module`](https://github.com/ruby/ruby/blob/c52f4eea564058a8a9865ccc8b2aa6de0c04d156/class.c#L1600)
+function is used to create a [Module](https://docs.ruby-lang.org/en/master/Module.html) object in Ruby, 
+it expects the name of the module, it automatically sets the superclass as a [`Namespace`](https://docs.ruby-lang.org/en/master/namespace_md.html)
+if its defined, otherwise to [`Object`](https://docs.ruby-lang.org/en/master/Object.html).
 
-- The `VALUE sumClass = rb_define_class("Sum", rb_cObject);` creates a class `Sum`, with a superclass
-[`rb_cObject`](https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/globals.h#L68)
-that references to `Object` in Ruby, and then stores the Ruby class into `VALUE sumClass`.
+
+- The `VALUE leibnizModule = rb_define_module("Leibniz");` creates a module `Leibniz`, and then stores
+the Ruby Module into `VALUE leibnizModule`.
 
 - The [`rb_define_singleton_method`](https://github.com/ruby/ruby/blob/c52f4eea564058a8a9865ccc8b2aa6de0c04d156/class.c#L2820)
-is used to create an `add` singleton method for the class `VALUE sumClass`.
+is used to create a `calc` singleton method for the class `VALUE leibnizModule`.
 
 That C code would be equivalent in Ruby:
 
 ```ruby
-class Sum
-  def self.add(a, b)
-    return a + b
+module Leibniz
+  def self.calc(n)
+    signal = -1.0
+    pi = 0.0
+
+    n.times do
+      signal = -signal
+      pi += signal / (2 * it + 1)
+    end
+
+    pi * 4.0
   end
 end
 ```
 
-Now, how do we run this C file? Easy, we need to compile it into a shared library!
-
 Ruby have a module ([MakeMakefile](https://docs.ruby-lang.org/en/3.4/MakeMakefile.html)) that provides a
-DSL to create a Makefile and compile our extension into a shared library. Let's create `ext/sum/extconf.rb`.
+DSL to create a Makefile and compile our extension into a dynamic shared library.  
+Let's modify the `ext/leibniz/extconf.rb` file to be able to produce a `Makefile`:
 
 ```ruby
 require 'mkmf'
 
-create_makefile 'sum/sum'
+create_makefile 'leibniz/leibniz'
 ```
 
 Since this example is very simple, there is no need to add more options to compile this extension.
 To generate the Makefile, we need to run `extconf.rb`.
 
 ```shell
-$ ruby ext/sum/extconf.rb && \
+$ ruby ext/leibniz/extconf.rb && \
     tree
 
 creating Makefile
 .
 ├── ext
-│   └── sum
+│   └── leibniz
 │       ├── extconf.rb
-│       └── sum.c
+│       └── leibniz.c
 └── Makefile
 
 3 directories, 3 files
 ```
 
-That will create the Makefile in the current directory. Now we just need to compile using `make`. The
-Makefile will create two files in our current directory, `sum.o` and `sum.so`. Only the `sum.so` is
-important for our needs.
+That will create a Makefile in the current directory. Now we just need to compile using `make`. The
+Makefile will create two files in our current directory, `leibniz.o` and `leibniz.so`.
+Only the `leibniz.so` is important for us.
 
 ```shell
 $ make && \
     tree
 
-compiling ext/sum/sum.c
-linking shared-object sum/sum.so
+compiling ext/leibniz/leibniz.c
+linking shared-object leibniz/leibniz.so
 .
 ├── ext
-│   └── sum
+│   └── leibniz
 │       ├── extconf.rb
-│       └── sum.c
+│       └── leibniz.c
 ├── Makefile
-├── sum.o
-└── sum.so
+├── leibniz.o
+└── leibniz.so
 
 3 directories, 5 files
 ```
 
 Done. We created our first C shared library that can be used directly in Ruby!
-To use the `sum.so` it only needs to be required as `require_relative 'sum'`. Here is an example
+To use the `leibniz.so` it only needs to be required as `require_relative 'leibniz'`. Here is an example
 
 ```ruby
-require_relative 'sum'
+require_relative 'leibniz'
 
-Sum.add 2, 3 # => 5
+puts Leibniz.calc 100_000_000 # => 3.141592643589326
 ```
 
 
 ## Windows Time
 
 Time for a more complex task, building a [window](https://github.com/raysan5/raylib/blob/master/examples/core/core_basic_window.c) using raylib. First we need to 
-[build it](https://github.com/raysan5/raylib/wiki/Working-on-GNU-Linux),
-then, let's create the directories and files needed.
+[build it](https://github.com/raysan5/raylib/wiki/Working-on-GNU-Linux), and then, create the 
+directories and files needed.
 
 ```shell
 $ mkdir -p raylib/ext && \
@@ -447,7 +478,7 @@ VALUE init_color(VALUE super) {
 
 We could have wrapped the [Raylib Color struct](https://github.com/raysan5/raylib/blob/8d9c1cecb7f53aef720e2ee0d1558ffc39fa7eef/src/raylib.h#L247)
 into a [`TypedData_Wrap_Struct`](https://docs.ruby-lang.org/en/master/extension_rdoc.html#label-C+struct+to+Ruby+object),
-but for simplicity, we'll use the helper function `Color get_color(VALUE colorObj)`
+but for simplicity, we'll use a helper function `Color get_color(VALUE colorObj)`
 to build a Color struct from the `Raylib::Color` class.
 
 Here's some new functions from the C API
@@ -570,8 +601,8 @@ have_header 'raylib.h'
 create_makefile 'window/window'
 ```
 
-We need to add some flags to the linker to be able to compile our raylib wrapper, and also a validator
-to check if we have access to the raylib library.
+We need to add some flags to the linker to be able to compile our raylib wrapper, and also, it's a good
+idea to add a validator to check if we have access to the raylib library in our system.
 
 Now let's use it after compiling the extension
 
@@ -624,4 +655,4 @@ Ruby.
 
 ---
 
-All the files in this post are available on [GitHub](https://github.com/jm379/blog/tree/master/src/1-extending-ruby).
+All source code used in this post is available on [GitHub](https://github.com/jm379/blog/tree/master/src/1-extending-ruby).
