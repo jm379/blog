@@ -1,7 +1,7 @@
 ---
 index: 1
 title: Extending Ruby
-date: 2025-05-24
+date: 2025-06-21
 ---
 
 Ruby is a great programming language, known for its developer-friendly sintax, flexibility with [metaprogramming](https://en.wikipedia.org/wiki/Metaprogramming),
@@ -16,10 +16,11 @@ or even using plain C for its performance benefits. In these cases, extending Ru
 
 The Ruby MRI (Matz's Ruby Interpreter, also known as CRuby) implementation provides a C API to extend its capabilities.
 There are two primary methods for extending Ruby: a simpler approach using a [FFI](https://en.wikipedia.org/wiki/Foreign_function_interface)
-gem or compiling a [shared library](https://en.wikipedia.org/wiki/Shared_library).
+[gem](https://github.com/ffi/ffi) or compiling a [shared library](https://en.wikipedia.org/wiki/Shared_library).
 
-This post will primarily focus on the compilation method to create extensions for Ruby on GNU/Linux.
-All examples were created using Ruby `3.4.3`, other versions may not be compatible.
+This post will focus on the compilation method to create extensions for Ruby on GNU/Linux.
+All examples were created using Ruby `3.4.3`, other versions may not be compatible due to changes on the
+underlying C API.
 
 ## Leibniz
 
@@ -118,8 +119,12 @@ def leibniz(n)
   pi * 4.0
 end
 
+TERMS = 100_000_000
+
+leibniz TERMS # => 3.141592643589326
+
 Benchmark.bm do
-  it.report('Ruby') { leibniz(100_000_000) }
+  it.report('Ruby') { leibniz(TERMS) }
 end
 
 # $ ruby --yjit leibniz.rb
@@ -175,7 +180,7 @@ in additional overhead by having to keep track of every memory allocation, trans
 and C types and having to interpret and run line by line of code.
 
 There still room for improvements in the C code. By applying SIMD techniques, we can theoretically
-enhance performance by up to four times. Let's compare the implementation with the SIMD version and
+enhance performance by four times. Let's compare the implementation with the SIMD version and
 examine the differences between them.
 
 ```c
@@ -228,8 +233,10 @@ to a new level.
 
 ## Leibniz extension
 
-Before we start, we have to be confortable with reading and writing C, and then, get familiar with 
-the [C API](https://docs.ruby-lang.org/en/master/extension_rdoc.html).
+Before we create our first extension, we have to be confortable with reading and writing C, and then, get familiar with 
+the [C API](https://docs.ruby-lang.org/en/master/extension_rdoc.html). The [Ruby source code](https://github.com/ruby/ruby)
+is a great place to read the actual implementation of the C API and use it as a reference, since a lot of
+its API is undocumented.
 
 Every extension should be located in the `ext/<extension_name>/<extension_name>.c` directory and have
 a sibling file `extconf.rb` that is used to create a `Makefile` needed to compile the extension.
@@ -259,7 +266,7 @@ VALUE calc(VALUE self, VALUE times) {
   double pi = 0.0;
   double signal = -1.0;
 
-  for(unsigned int i = 0; i < n; ++i) {
+  for(size_t i = 0; i < n; ++i) {
     signal = -signal;
     pi += signal / (2 * i + 1);
   }
@@ -281,24 +288,25 @@ C code.
 In the `calc` function we have:
 
 - The [`VALUE`](https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/value.h#L40)
-is an `uintptr_t`, an unsigned integer that can be used as a pointer, and it represents a Ruby Object,
+is an `uintptr_t`, an unsigned integer capable to stora a pointer. It represents a Ruby Object,
 so it could be an Integer, Array, File, etc...
 
-- The `VALUE self` is the object that the method is bound to. In this case it should be the `Leibniz` module
+- The `VALUE self` is the object that the method is attached to. In this case it should be the `Leibniz` module
 that is defined below.
 
 - The [`RB_NUM2SIZE`](https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/arithmetic/size_t.h#L47)
 is a function that converts a Ruby [`Numeric`](https://docs.ruby-lang.org/en/master/Numeric.html)
-to a C `size_t`. It's an "alias" for [`RB_NUM2ULONG`](https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/arithmetic/long.h#L293).
+to a C `size_t`. It's an "alias" for the [`rb_num2ulong_inline`](https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/arithmetic/long.h#L293)
+function.
 
-- The [`DBL2NUM`](https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/arithmetic/double.h#L29)
-is a function that converts a C double into a Ruby `Numeric`.
+- The [`rb_float_new`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/include/ruby/internal/arithmetic/double.h#L57)
+is a function that converts a C double into a Ruby [`Float`](https://docs.ruby-lang.org/en/master/Float.html).
 
 So the `VALUE calc(VALUE self, VALUE times)` function receives two Ruby objects
 (`VALUE self` and `VALUE times`), converts the `times` into `size_t`, calculates the Leibniz 
 formula, and then wraps and return the result into a `Numeric` `VALUE`.
 
-The function `void Init_leibniz(void)` is the entrypoint of our extension. By CRuby convention,
+The function `void Init_leibniz(void)` is the entrypoint to our extension. By CRuby convention,
 It should always be named like `Init_<extension_name>`.
 
 In the `Init_leibniz` function we have:
@@ -310,7 +318,7 @@ Object if its defined, otherwise to [`Object`](https://docs.ruby-lang.org/en/mas
 
 
 - The `VALUE leibnizModule = rb_define_module("Leibniz");` creates a module `Leibniz`, and then stores
-the Ruby Module into `VALUE leibnizModule`.
+the Ruby Module into the variable `VALUE leibnizModule`.
 
 - The [`rb_define_singleton_method`](https://github.com/ruby/ruby/blob/c52f4eea564058a8a9865ccc8b2aa6de0c04d156/class.c#L2820)
 is used to create a `calc` singleton method for the module `VALUE leibnizModule`.
@@ -343,7 +351,7 @@ require 'mkmf'
 create_makefile 'leibniz/leibniz'
 ```
 
-Since this example is very simple, there is no need to add more options to compile this extension.
+There's no need to add more options to compile this extension, since this example is very simple.
 To generate the Makefile, we need to run the `extconf.rb` file.
 
 ```shell
@@ -361,8 +369,9 @@ creating Makefile
 3 directories, 3 files
 ```
 
-This will create a Makefile in the current directory. Now we just need to compile using `make`. The
-Makefile will create two files in our current directory, `leibniz.o` and `leibniz.so`.
+This will create a Makefile in the current directory. Now we just need to compile using `make`.
+
+The Makefile will create two files in our current directory, `leibniz.o` and `leibniz.so`.
 Only the `leibniz.so` is important for us.
 
 ```shell
@@ -501,8 +510,8 @@ creates a new class under the given superclass. In this example, it's going to b
 creates a new instance method for an object. In this case it's defining the `initialize` method.
 
 - [`rb_define_attr`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/include/ruby/internal/method.h#L199)
-defines either an `attr_reader`, or `attr_writer`, depending on the given flags. It's defining both in this
-case.
+defines either an `attr_reader`, or `attr_writer`, depending on the given flags. In this case,
+it's defining both.
 
 
 ```c
@@ -519,13 +528,13 @@ static VALUE init_window(VALUE self, VALUE height, VALUE width, VALUE title) {
     StringValueCStr(title)
   );
 
-  return Qnil;
+  return RUBY_Qnil;
 }
 
 static VALUE set_target_fps(VALUE self, VALUE fps) {
   SetTargetFPS(RB_FIX2INT(fps));
 
-  return Qnil;
+  return RUBY_Qnil;
 }
 
 static VALUE window_should_close(VALUE self) {
@@ -535,19 +544,19 @@ static VALUE window_should_close(VALUE self) {
 static VALUE begin_drawing(VALUE self) {
   BeginDrawing();
 
-  return Qnil;
+  return RUBY_Qnil;
 }
 
 static VALUE end_drawing(VALUE self) {
   EndDrawing();
 
-  return Qnil;
+  return RUBY_Qnil;
 }
 
 static VALUE clear_background(VALUE self, VALUE colorObj) {
   ClearBackground(get_color(colorObj));
 
-  return Qnil;
+  return RUBY_Qnil;
 }
 
 static VALUE draw_text(VALUE self, VALUE text, VALUE posX, VALUE posY, VALUE fontSize, VALUE colorObj) {
@@ -559,13 +568,13 @@ static VALUE draw_text(VALUE self, VALUE text, VALUE posX, VALUE posY, VALUE fon
     get_color(colorObj)
   );
 
-  return Qnil;
+  return RUBY_Qnil;
 }
 
 static VALUE close_window(VALUE self) {
   CloseWindow();
 
-  return Qnil;
+  return RUBY_Qnil;
 }
 
 void Init_window(void) {
@@ -585,11 +594,15 @@ void Init_window(void) {
 }
 ```
 
-Most of the C API calls were already explained, so it's just wrapping Raylib API.
-Here's the only new call:
+Most of the C API calls were already explained, so it's mostly just wrapping the Raylib API into Ruby's C API.
+
+Here're some new methods from the C API:
 
 - [`StringValueCStr`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/include/ruby/internal/core/rstring.h#L89)
 Creates a new C `NULL` terminated string from a Ruby string.
+
+- [`RUBY_Qnil`](https://github.com/ruby/ruby/blob/87d340f0e129ecf807e3be35d67fda1ad6f40389/include/ruby/internal/special_consts.h#L60)
+It's the Ruby [`NilClass`](https://docs.ruby-lang.org/en/master/NilClass.html) representation in C.
 
 ```ruby
 # ext/window/extconf.rb
@@ -605,7 +618,7 @@ create_makefile 'window/window'
 We need to add some flags to the linker to be able to compile our raylib wrapper, and it's a good idea to
 add a validator to check if we have access to the raylib library in our system.
 
-Time to use our wrapped library:
+Time to use the wrapped library:
 
 ```ruby
 # window.rb
@@ -635,7 +648,7 @@ This should open up a window exactly as the
 
 ## Wrapping Up
 
-In this post, we've learned how to create native C Ruby extensions, from creating a brand new one, to
+In this post, we've learned how to create native C Ruby extensions, from creating one from scratch, to
 wrapping an already existing library in C. However, this technique should be only used when the solutions
 in pure Ruby doesn't exists or it lacks the performance to do so, since it adds more complexity to
 our projects. Here're some considerations:
@@ -653,7 +666,7 @@ aarch64 and x86_64; linux, windows and macOS.
 
 Some of those issues can be mitigated by using a [FFI gem](https://github.com/ffi/ffi) where it can
 help in the case when multiple platforms are needed or lower the complexity in the codebase,
-because you can write your extension purely in Ruby.
+since you can write your extension purely in Ruby.
 
 ---
 

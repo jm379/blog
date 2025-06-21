@@ -6,12 +6,12 @@ VALUE calc(VALUE self, VALUE times) {
   double pi = 0.0;
   double signal = -1.0;
 
-  for(unsigned int i = 0; i < n; ++i) {
+  for(size_t i = 0; i < n; ++i) {
     signal = -signal;
     pi += signal / (2 * i + 1);
   }
 
-  return DBL2NUM(pi * 4.0);
+  return rb_float_new(pi * 4.0);
 }
 
 void Init_leibniz(void) {
