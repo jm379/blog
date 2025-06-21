@@ -12,13 +12,10 @@
   in {
     devShells.${system}.default = pkgs.mkShell {
       buildInputs = [
-        pkgs.caddy
-        pkgs.nssTools
+        pkgs.ruby_3_4
+        pkgs.raylib
+        pkgs.tree
       ];
-
-      shellHook = ''
-        export DOMAIN=:3000
-      '';
     };
   };
 }

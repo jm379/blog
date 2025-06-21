@@ -1,2 +1,0 @@
-web: caddy file-server --browse --listen :3000
-guard: bin/guard

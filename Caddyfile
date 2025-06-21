@@ -1,7 +1,13 @@
-blog.jmonka.xyz {
-  encode gzip
+{$DOMAIN} {
+	root * posts
 
-  file_server {
-    root /var/www/html
-  }
+	file_server {
+		precompressed
+	}
+
+	templates
+
+	encode zstd gzip
+
+	try_files {path} index.html
 }
