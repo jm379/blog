@@ -1,9 +1,7 @@
-{$DOMAIN} {
-	root * posts
+{$BLOG_DOMAIN} {
+	root * {$BLOG_ROOT}
 
-	file_server {
-		precompressed
-	}
+	file_server
 
 	templates
 

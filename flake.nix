@@ -17,7 +17,8 @@
       ];
 
       shellHook = ''
-        export DOMAIN=:3000
+        export BLOG_DOMAIN=:3000 &&
+        export BLOG_ROOT=posts
       '';
     };
   };
