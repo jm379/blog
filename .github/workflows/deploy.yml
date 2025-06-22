@@ -12,6 +12,9 @@ jobs:
     env:
       USERNAME: ${{ secrets.USERNAME }}
       HOST: ${{ secrets.HOST }}
+      SSH_PRIVATE_KEY_PATH: ~/.ssh/id_ed25519
+      CADDYFILE_PATH: /etc/caddy/Caddyfile
+      BLOG_PATH: /var/www/blog
 
     steps:
       - name: Checkout code
@@ -20,20 +23,22 @@ jobs:
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+          echo "$SSH_PRIVATE_KEY" > $SSH_PRIVATE_KEY_PATH
+          chmod 600 $SSH_PRIVATE_KEY_PATH
+          eval $(ssh-agent -s) 
+          ssh-add $SSH_PRIVATE_KEY_PATH
           ssh-keyscan -H $HOST >> ~/.ssh/known_hosts
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Sync files using rsync
         run: |
-          rsync -avz --delete ./posts $USERNAME@$HOST:/var/www/blog
+          rsync -avz --delete -e "ssh -i $SSH_PRIVATE_KEY_PATH" ./posts $USERNAME@$HOST:$BLOG_PATH
 
       - name: Update Caddyfile
         run: |
-          scp ./Caddyfile $USERNAME@$HOST:/etc/caddy/Caddyfile
+          scp -i $SSH_PRIVATE_KEY_PATH ./Caddyfile $USERNAME@$HOST:$CADDYFILE_PATH
 
       - name: Reload Caddy
         run: |
-          ssh $USERNAME@$HOST 'caddy reload --config /etc/caddy/Caddyfile'
+          ssh -i $SSH_PRIVATE_KEY_PATH $USERNAME@$HOST 'caddy reload --config $CADDYFILE_PATH'
