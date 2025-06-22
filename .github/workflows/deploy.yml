@@ -43,5 +43,5 @@ jobs:
         run: |
           ssh $USERNAME@$HOST "BLOG_DOMAIN=$BLOG_DOMAIN BLOG_ROOT=$BLOG_ROOT caddy reload --config $CADDYFILE_PATH"
         env:
-          BLOG_DOMAIN: jmonka.xyz
+          BLOG_DOMAIN: blog.jmonka.xyz
           BLOG_ROOT: /var/www/blog/posts
