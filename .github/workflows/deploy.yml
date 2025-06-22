@@ -11,9 +11,7 @@ jobs:
     env:
       USERNAME: ${{ secrets.USERNAME }}
       HOST: ${{ secrets.HOST }}
-      # SSH_PRIVATE_KEY_PATH: ~/.ssh/id_ed25519
       CADDYFILE_PATH: /etc/caddy/Caddyfile
-      BLOG_PATH: /var/www/blog
 
     steps:
       - name: Checkout code
@@ -22,10 +20,10 @@ jobs:
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > SSH_PRIVATE_KEY_PATH
-          chmod 600 SSH_PRIVATE_KEY_PATH
+          echo "$SSH_PRIVATE_KEY" > $SSH_PRIVATE_KEY_PATH
+          chmod 600 $SSH_PRIVATE_KEY_PATH
           eval $(ssh-agent)
-          ssh-add SSH_PRIVATE_KEY_PATH
+          ssh-add $SSH_PRIVATE_KEY_PATH
           ssh-keyscan -H $HOST >> ~/.ssh/known_hosts
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -33,7 +31,9 @@ jobs:
 
       - name: Deploying with rsync
         run: |
-          rsync -avz --delete ./posts $USERNAME@$HOST:$BLOG_PATH
+          rsync -avz --delete ./posts $USERNAME@$HOST:$DEPLOY_PATH
+        env:
+          DEPLOY_PATH: /var/www/blog
 
       - name: Updating Caddyfile
         run: |
