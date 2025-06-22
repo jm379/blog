@@ -1,0 +1,39 @@
+name: Deploy Blog
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: Production
+    env:
+      USERNAME: ${{ secrets.USERNAME }}
+      HOST: ${{ secrets.HOST }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H $HOST >> ~/.ssh/known_hosts
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Sync files using rsync
+        run: |
+          rsync -avz --delete ./posts $USERNAME@$HOST:/var/www/blog
+
+      - name: Update Caddyfile
+        run: |
+          scp ./Caddyfile $USERNAME@$HOST:/etc/caddy/Caddyfile
+
+      - name: Reload Caddy
+        run: |
+          ssh $USERNAME@$HOST 'caddy reload --config /etc/caddy/Caddyfile'
