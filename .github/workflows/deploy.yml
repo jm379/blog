@@ -22,21 +22,23 @@ jobs:
           mkdir -p ~/.ssh
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
+          eval $(ssh-agent -s) 
+          ssh-add ~/.ssh/id_ed25519
           ssh-keyscan -H $HOST >> ~/.ssh/known_hosts
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Deploying with rsync
         run: |
-          rsync -avz --delete -e "ssh -i /$HOME/.ssh/id_ed25519" $SOURCE_PATH $USERNAME@$HOST:$DEPLOY_PATH
+          rsync -avz --delete $SOURCE_PATH $USERNAME@$HOST:$DEPLOY_PATH
         env:
           DEPLOY_PATH: /var/www/blog
           SOURCE_PATH: ${{ github.workspace }}/posts
 
       - name: Updating Caddyfile
         run: |
-          scp -i ~/.ssh/id_ed25519 ./Caddyfile $USERNAME@$HOST:$CADDYFILE_PATH
+          scp ./Caddyfile $USERNAME@$HOST:$CADDYFILE_PATH
 
       - name: Reloading Caddy
         run: |
-          ssh -i ~/.ssh/id_ed25519 $USERNAME@$HOST 'caddy reload --config $CADDYFILE_PATH'
+          ssh $USERNAME@$HOST "caddy reload --config $CADDYFILE_PATH"
