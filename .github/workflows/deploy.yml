@@ -42,3 +42,6 @@ jobs:
       - name: Reloading Caddy
         run: |
           ssh $USERNAME@$HOST "caddy reload --config $CADDYFILE_PATH"
+        env:
+          BLOG_DOMAIN: jmonka.xyz
+          BLOG_ROOT: /var/www/blog/posts
