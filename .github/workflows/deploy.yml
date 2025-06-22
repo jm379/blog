@@ -22,20 +22,23 @@ jobs:
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
+          echo "$SSH_PRIVATE_KEY" > SSH_PRIVATE_KEY_PATH
+          chmod 600 SSH_PRIVATE_KEY_PATH
+          eval $(ssh-agent)
+          ssh-add SSH_PRIVATE_KEY_PATH
           ssh-keyscan -H $HOST >> ~/.ssh/known_hosts
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_PRIVATE_KEY_PATH: ~/.ssh/id_ed25519
 
-      - name: Sync files using rsync
+      - name: Deploying with rsync
         run: |
-          rsync -avz --delete -e "ssh -i ~/.ssh/id_ed25519" ./posts $USERNAME@$HOST:$BLOG_PATH
+          rsync -avz --delete ./posts $USERNAME@$HOST:$BLOG_PATH
 
-      - name: Update Caddyfile
+      - name: Updating Caddyfile
         run: |
-          scp -i ~/.ssh/id_ed25519 ./Caddyfile $USERNAME@$HOST:$CADDYFILE_PATH
+          scp ./Caddyfile $USERNAME@$HOST:$CADDYFILE_PATH
 
-      - name: Reload Caddy
+      - name: Reloading Caddy
         run: |
-          ssh -i ~/.ssh/id_ed25519 $USERNAME@$HOST 'caddy reload --config $CADDYFILE_PATH'
+          ssh $USERNAME@$HOST 'caddy reload --config $CADDYFILE_PATH'
