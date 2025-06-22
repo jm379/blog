@@ -15,7 +15,7 @@ using [SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data), u
 or even using plain C for its performance benefits. In these cases, extending Ruby can be the perfect solution.
 
 The Ruby MRI (Matz's Ruby Interpreter, also known as CRuby) implementation provides a C API to extend its capabilities.
-There are two primary methods for extending Ruby: a simpler approach using a [FFI](https://en.wikipedia.org/wiki/Foreign_function_interface)
+There're two primary methods for extending Ruby: a simpler approach using a [FFI](https://en.wikipedia.org/wiki/Foreign_function_interface)
 [gem](https://github.com/ffi/ffi) or compiling a [shared library](https://en.wikipedia.org/wiki/Shared_library).
 
 This post will focus on the compilation method to create extensions for Ruby on GNU/Linux.
@@ -100,7 +100,7 @@ This series converges to *π*/4 by alternating between adding and subtracting fr
 represents a progressively smaller contribution to the total. The Leibniz formula is very straightforward
 to understand and implement, but its convergence is extremely slow. It requires an enormous amount of
 terms to calculate a decent amount of decimal places of *π* accurately.  
-Here is an implementation of the formula in Ruby
+Here's an implementation of the formula in Ruby
 
 ```ruby
 # leibniz.rb
@@ -121,7 +121,7 @@ end
 
 TERMS = 100_000_000
 
-leibniz TERMS # => 3.141592643589326
+puts leibniz(TERMS) # => 3.141592643589326
 
 Benchmark.bm do
   it.report('Ruby') { leibniz(TERMS) }
@@ -140,8 +140,7 @@ The benchmark result was obtained on an [AMD Ryzen 5900X](https://www.amd.com/en
 a 12 core CPU, and it still took 2.89 seconds to calculate 100 million terms, and without YJIT enabled,
 it took 5.58 seconds!
 
-Let's compare the performance of the C version of the Leibniz formula for *π*, as C is known for its 
-efficiency and speed. This comparison will illustrate how Ruby performs in contrast.
+Let's compare the performance of the C version of the Leibniz formula for *π*.
 
 ```c
 // leibniz.c
@@ -152,7 +151,7 @@ double leibniz(size_t n) {
   double pi = 0.0;
   double signal = -1.0;
 
-  for (unsigned int i = 0; i < n; ++i) {
+  for (size_t i = 0; i < n; ++i) {
     signal = -signal;
     pi += signal / (2 * i + 1);
   }
@@ -174,14 +173,14 @@ int main(void) {
 Based on the benchmark results, the C implementation executed in approximately in 0.094 seconds, while
 the Ruby implementation took 2.89 seconds, making it 30 times slower, and 59 times slower without YJIT! Most
 of this difference comes from the fact that Ruby is a [interpreted](https://en.wikipedia.org/wiki/Interpreter_(computing)),
-[garbage-collected](https://en.wikipedia.org/wiki/Garbage_collection_%28computer_science%29)
+[garbage-collected](https://en.wikipedia.org/wiki/Garbage_collection_%28computer_science%29),
 and [dynamically typed](https://en.wikipedia.org/wiki/Dynamic_programming_language) language, which incurs
 in additional overhead by having to keep track of every memory allocation, transforming between Ruby types
-and C types and having to interpret and run line by line of code.
+and C types, and having to interpret and run line by line of code.
 
-There still room for improvements in the C code. By applying SIMD techniques, we can theoretically
-enhance performance by four times. Let's compare the implementation with the SIMD version and
-examine the differences between them.
+There's still room for improvements in the C code. By applying SIMD techniques, we can theoretically
+increase the performance by four.
+Here's the SIMD version using AVX2 instructions to calculate *π*:
 
 ```c
 // leibniz-simd.c
@@ -199,7 +198,7 @@ double leibniz_simd(size_t n) {
   __m256d sum_vector = _mm256_setzero_pd();
   __m256d idx_vector = _mm256_set_pd(0.0, 1.0, 2.0, 3.0);
 
-  for(unsigned int i = 0; i < n; i += 4) {
+  for(size_t i = 0; i < n; i += 4) {
     sum_vector = _mm256_fmadd_pd(two_vector, idx_vector, one_vector);
     sum_vector = _mm256_div_pd(signal_vector, sum_vector);
 
@@ -226,21 +225,20 @@ int main(void) {
 ```
 
 The performance achieved by using SIMD is approximately 3.75 times faster than the straightforward
-implementation in C and an impressive 115 times faster (223 times without YJIT) than pure Ruby! 
+implementation in C, and an impressive 115 times faster (223 times without YJIT) than pure Ruby! 
 
 Now that we've seen the potential gains from using C, let's explore how we can use it to elevate Ruby
-to a new level.
+to the next level.
 
 ## Leibniz extension
 
-Before we create our first extension, we have to be confortable with reading and writing C, and then, get familiar with 
-the [C API](https://docs.ruby-lang.org/en/master/extension_rdoc.html). The [Ruby source code](https://github.com/ruby/ruby)
+Before we create our first extension, we have to be confortable with C, and getting familiar with 
+the [C Ruby API](https://docs.ruby-lang.org/en/master/extension_rdoc.html). The [Ruby source code](https://github.com/ruby/ruby)
 is a great place to read the actual implementation of the C API and use it as a reference, since a lot of
 its API is undocumented.
 
 Every extension should be located in the `ext/<extension_name>/<extension_name>.c` directory and have
-a sibling file `extconf.rb` that is used to create a `Makefile` needed to compile the extension.
-Let's create the directory structure and the files needed.
+a file `extconf.rb`, used to create a `Makefile` needed to compile the extension.
 
 ```shell
 $ mkdir -p leibniz/ext/leibniz && \
@@ -256,7 +254,7 @@ $ mkdir -p leibniz/ext/leibniz && \
 3 directories, 2 file
 ```
 
-Now open your favorite editor and add these contents to the `leibniz.c` file.
+This should be the contents of the `etx/leibniz/leibniz.c` file.
 
 ```c
 // leibniz.c
@@ -271,7 +269,7 @@ VALUE calc(VALUE self, VALUE times) {
     pi += signal / (2 * i + 1);
   }
 
-  return DBL2NUM(pi * 4.0);
+  return rb_float_new(pi * 4.0);
 }
 
 void Init_leibniz(void) {
@@ -280,19 +278,16 @@ void Init_leibniz(void) {
 }
 ```
 
-Let's break down the file in parts so we can understand what's happening.
-
-The `#include <ruby.h>` allows the usage of the Ruby C API, so we can interact with Ruby within our
-C code.
+The `#include <ruby.h>` allows the usage of the Ruby C API, so we can interact with Ruby within our C code.
 
 In the `calc` function we have:
 
 - The [`VALUE`](https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/value.h#L40)
-is an `uintptr_t`, an unsigned integer capable to stora a pointer. It represents a Ruby Object,
-so it could be an Integer, Array, File, etc...
+is an `uintptr_t`, an unsigned integer with enough size to store a pointer value, but not necessarily an actual pointer.
+It represents a Ruby Object, so it could be an Integer, Array, File, etc.
 
-- The `VALUE self` is the object that the method is attached to. In this case it should be the `Leibniz` module
-that is defined below.
+- The `VALUE self` is the object that the method is attached to. In this case it should be the `Leibniz`
+module that is defined below.
 
 - The [`RB_NUM2SIZE`](https://github.com/ruby/ruby/blob/d0b7e5b6a04bde21ca483d20a1546b28b401c2d4/include/ruby/internal/arithmetic/size_t.h#L47)
 is a function that converts a Ruby [`Numeric`](https://docs.ruby-lang.org/en/master/Numeric.html)
@@ -303,11 +298,11 @@ function.
 is a function that converts a C double into a Ruby [`Float`](https://docs.ruby-lang.org/en/master/Float.html).
 
 So the `VALUE calc(VALUE self, VALUE times)` function receives two Ruby objects
-(`VALUE self` and `VALUE times`), converts the `times` into `size_t`, calculates the Leibniz 
-formula, and then wraps and return the result into a `Numeric` `VALUE`.
+(`VALUE self` and `VALUE times`), converts the `times` into `size_t`, calculates the Leibniz
+formula, and then wraps and return the result into a `Float` `VALUE`.
 
-The function `void Init_leibniz(void)` is the entrypoint to our extension. By CRuby convention,
-It should always be named like `Init_<extension_name>`.
+The function `void Init_leibniz(void)` is the entrypoint to our extension. It must be named as `Init_<extension_name>`
+by CRuby standards.
 
 In the `Init_leibniz` function we have:
 
@@ -315,7 +310,6 @@ In the `Init_leibniz` function we have:
 function is used to create a [Module](https://docs.ruby-lang.org/en/master/Module.html) object in Ruby, 
 it expects the name of the module and it automatically sets the superclass as the [`Namespace`](https://docs.ruby-lang.org/en/master/namespace_md.html)
 Object if its defined, otherwise to [`Object`](https://docs.ruby-lang.org/en/master/Object.html).
-
 
 - The `VALUE leibnizModule = rb_define_module("Leibniz");` creates a module `Leibniz`, and then stores
 the Ruby Module into the variable `VALUE leibnizModule`.
@@ -341,7 +335,7 @@ module Leibniz
 end
 ```
 
-Ruby have a module ([MakeMakefile](https://docs.ruby-lang.org/en/3.4/MakeMakefile.html)) that provides a
+Ruby have the [MakeMakefile](https://docs.ruby-lang.org/en/3.4/MakeMakefile.html) module that provides a
 DSL to create a Makefile and compile our extension into a dynamic shared library.  
 Let's modify the `ext/leibniz/extconf.rb` file to be able to produce a `Makefile`:
 
@@ -372,7 +366,7 @@ creating Makefile
 This will create a Makefile in the current directory. Now we just need to compile using `make`.
 
 The Makefile will create two files in our current directory, `leibniz.o` and `leibniz.so`.
-Only the `leibniz.so` is important for us.
+Only the `leibniz.so` is important for creating an extension.
 
 ```shell
 $ make && \
@@ -405,9 +399,9 @@ puts Leibniz.calc 100_000_000 # => 3.141592643589326
 
 ## Windows Time
 
-Time for a more complex task, building a [window](https://github.com/raysan5/raylib/blob/master/examples/core/core_basic_window.c) using raylib. First we need to 
-[build it](https://github.com/raysan5/raylib/wiki/Working-on-GNU-Linux), and then, create the 
-directories and files needed.
+Time for a more complex task, building a [window](https://github.com/raysan5/raylib/blob/master/examples/core/core_basic_window.c)
+using raylib. First we need to [build it](https://github.com/raysan5/raylib/wiki/Working-on-GNU-Linux),
+and then, create the directories and files needed.
 
 ```shell
 $ mkdir -p raylib/ext && \
@@ -426,7 +420,7 @@ $ mkdir -p raylib/ext && \
 3 directories, 5 files
 ```
 
-Lets write the code.
+Let's write the code.
 
 ```c
 // ext/window/color.h
@@ -444,15 +438,6 @@ VALUE init_color(VALUE super);
 
 #include "color.h"
 
-// Same as:
-// class Color
-//   def initialize(red, green, blue, alpha)
-//     @red = red
-//     @green = green
-//     @blue = blue
-//     @alpha = alpha
-//   end
-// end
 VALUE color_initialize(VALUE self, VALUE red, VALUE green, VALUE blue, VALUE alpha) {
   rb_iv_set(self, "@red", red);
   rb_iv_set(self, "@green", green);
@@ -594,7 +579,7 @@ void Init_window(void) {
 }
 ```
 
-Most of the C API calls were already explained, so it's mostly just wrapping the Raylib API into Ruby's C API.
+Most of the C API calls were already explained, so most of the work is just wrapping the Raylib API into Ruby's C API.
 
 Here're some new methods from the C API:
 
@@ -648,8 +633,8 @@ This should open up a window exactly as the
 
 ## Wrapping Up
 
-In this post, we've learned how to create native C Ruby extensions, from creating one from scratch, to
-wrapping an already existing library in C. However, this technique should be only used when the solutions
+In this post, we've learned how to create native C Ruby extensions from scratch, to wrapping an already 
+existing library in C. However, this technique should be only used when the solutions
 in pure Ruby doesn't exists or it lacks the performance to do so, since it adds more complexity to
 our projects. Here're some considerations:
 

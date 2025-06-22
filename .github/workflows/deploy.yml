@@ -11,7 +11,6 @@ jobs:
     env:
       USERNAME: ${{ secrets.USERNAME }}
       HOST: ${{ secrets.HOST }}
-      CADDYFILE_PATH: /etc/caddy/Caddyfile
 
     steps:
       - name: Checkout code
@@ -38,6 +37,8 @@ jobs:
       - name: Updating Caddyfile
         run: |
           scp ./Caddyfile $USERNAME@$HOST:$CADDYFILE_PATH
+        env:
+          CADDYFILE_PATH: /etc/caddy/Caddyfile
 
       - name: Reloading Caddy
         run: |
