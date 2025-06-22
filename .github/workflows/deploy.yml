@@ -8,7 +8,6 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: Production
     env:
       USERNAME: ${{ secrets.USERNAME }}
       HOST: ${{ secrets.HOST }}
@@ -25,8 +24,6 @@ jobs:
           mkdir -p ~/.ssh
           echo "$SSH_PRIVATE_KEY" > $SSH_PRIVATE_KEY_PATH
           chmod 600 $SSH_PRIVATE_KEY_PATH
-          eval $(ssh-agent -s) 
-          ssh-add $SSH_PRIVATE_KEY_PATH
           ssh-keyscan -H $HOST >> ~/.ssh/known_hosts
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
