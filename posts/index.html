@@ -4,21 +4,20 @@
 {{ $markdownFile := (include $markdownFilePath | splitFrontMatter) }}
 {{ $title := default "post.md" $markdownFile.Meta.title }}
 {{ $date := default "post.md" $markdownFile.Meta.date }}
+{{ $description := default "post.md" $markdownFile.Meta.description }}
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="{{ $description }}">
   <title>{{ $title }}</title>
 
-  <link href="/assets/css/style.css" rel="stylesheet" />
+  <script src="/assets/js/highlightjs.min.js" type="application/javascript" defer></script>
+  <script src="/assets/js/highlightjs.js" type="application/javascript" defer></script>
 
-  <script src="/assets/js/highlightjs.min.js"></script>
-  <link href="./assets/css/highlightjs/catppuccin-mocha.min.css" rel="stylesheet">
-  <script>
-    hljs.configure({ignoreUnescapedHTML: true})
-    hljs.highlightAll()
-  </script>
+  <link href="/assets/css/style.css" rel="stylesheet" media="all" />
+  <link href="/assets/css/highlightjs/catppuccin-mocha.min.css" rel="stylesheet" media="all" />
 </head>
 
 <body>

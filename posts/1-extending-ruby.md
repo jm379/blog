@@ -2,6 +2,7 @@
 index: 1
 title: Extending Ruby
 date: 2025-06-21
+description: Extending Ruby capabilities and performance using C
 ---
 
 Ruby is a great programming language, known for its developer-friendly sintax, flexibility with [metaprogramming](https://en.wikipedia.org/wiki/Metaprogramming),
