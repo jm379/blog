@@ -9,67 +9,64 @@ end
 module Inotify
   extend FFI::Library
 
-  ffi_lib 'lib/libinotify.so'
+  class Event < FFI::Struct
+    layout :wd,     :int32,
+           :mask,   :uint32,
+           :cookie, :uint32,
+           :len,    :uint32
+  end
 
-  attach_function :init, [], :int32
-  attach_function :add_watch, [:int32, :string, :uint32], :int32
-  attach_function :rm_watch, [:int32, :uint32], :void
+  ffi_lib FFI::Library::LIBC,
+          "#{File.dirname(__FILE__)}/lib/libinotify.so"
 
-  callback :callback, [:int32, :uint32, :uint32, :uint32, :string], :void
-  attach_function :watch, [:int32, :callback], :void, blocking: true
-end
+  attach_function :init, :inotify_init1, [:int], :int
+  attach_function :add_watch, :inotify_add_watch, [:int, :string, :uint32], :int
+  attach_function :rm_watch, :inotify_rm_watch, [:int, :uint32], :int
 
-module Inotify
+  callback :callback, [Event.by_ref, :string], :void
+  attach_function :watch, [:int32, :callback], :int32
+
   module Flags
-    IN_ACCESS=0x00000001
-    IN_MODIFY=0x00000002
-    IN_ATTRIB=0x00000004
-    IN_CLOSE_WRITE=0x00000008
-    IN_CLOSE_NOWRITE=0x00000010
-    IN_CLOSE=(IN_CLOSE_WRITE | IN_CLOSE_NOWRITE)
-    IN_OPEN=0x00000020
-    IN_MOVED_FROM=0x00000040
-    IN_MOVED_TO=0x00000080
-    IN_MOVE= (IN_MOVED_FROM | IN_MOVED_TO)
-    IN_CREATE=0x00000100
-    IN_DELETE=0x00000200
-    IN_DELETE_SELF=0x00000400
-    IN_MOVE_SELF=0x00000800
-    # Events sent by the kernel.
-    IN_UNMOUNT=0x00002000
-    IN_Q_OVERFLOW=0x00004000
-    IN_IGNORED=0x00008000
-    IN_ONLYDIR=0x01000000
-    IN_DONT_FOLLOW=0x02000000
-    IN_MASK_ADD=0x20000000
-    IN_ISDIR=0x40000000
-    IN_ONESHOT=0x80000000
-    IN_ALL_EVENTS=(IN_ACCESS | IN_MODIFY | IN_ATTRIB | IN_CLOSE_WRITE \
-                            | IN_CLOSE_NOWRITE | IN_OPEN | IN_MOVED_FROM \
-                            | IN_MOVED_TO | IN_CREATE | IN_DELETE \
-                            | IN_DELETE_SELF | IN_MOVE_SELF)
+    # Flags taken from https://github.com/torvalds/linux/blob/master/include/uapi/linux/inotify.h
+    IN_ACCESS         = 0x0000_0001 # File was accessed
+    IN_MODIFY         = 0x0000_0002 # File was modified
+    IN_ATTRIB         = 0x0000_0004 # Metadata changed
+    IN_CLOSE_WRITE    = 0x0000_0008 # Writable file was closed
+    IN_CLOSE_NOWRITE  = 0x0000_0010 # Unwritable file closed
+    IN_OPEN           = 0x0000_0020 # File was opened
+    IN_MOVED_FROM     = 0x0000_0040 # File was moved from X
+    IN_MOVED_TO       = 0x0000_0080 # File was moved to Y
+    IN_CREATE         = 0x0000_0100 # Subfile was created
+    IN_DELETE         = 0x0000_0200 # Subfile was deleted
+    IN_DELETE_SELF    = 0x0000_0400 # Self was deleted
+    IN_MOVE_SELF      = 0x0000_0800 # Self was moved
+
+    # the following are legal events.  they are sent as needed to any watch
+    IN_UNMOUNT    = 0x0000_2000 # Backing fs was unmounted
+    IN_Q_OVERFLOW = 0x0000_4000 # Event queued overflowed
+    IN_IGNORED    = 0x0000_8000 # File was ignored
+
+    # helper events
+    IN_CLOSE  = (IN_CLOSE_WRITE | IN_CLOSE_NOWRITE) # close
+    IN_MOVE   = (IN_MOVED_FROM | IN_MOVED_TO) # moves
+
+    # special flags
+    IN_ONLYDIR      = 0x0100_0000 # only watch the path if it is a directory
+    IN_DONT_FOLLOW  = 0x0200_0000 # don't follow a sym link
+    IN_EXCL_UNLINK  = 0x0400_0000 # exclude events on unlinked objects
+    IN_MASK_CREATE  = 0x1000_0000 # only create watches
+    IN_MASK_ADD     = 0x2000_0000 # add to the mask of an already existing watch
+    IN_ISDIR        = 0x4000_0000 # event occurred against dir
+    IN_ONESHOT      = 0x8000_0000 # only send event once
+
+    # All of the events - we build the list by hand so that we can add flags in
+    # the future and not break backward compatibility.  Apps will get only the
+    # events that they originally wanted.  Be sure to add new events here!
+    IN_ALL_EVENTS = (IN_ACCESS | IN_MODIFY | IN_ATTRIB | IN_CLOSE_WRITE | \
+                     IN_CLOSE_NOWRITE | IN_OPEN | IN_MOVED_FROM | \
+                     IN_MOVED_TO | IN_DELETE | IN_CREATE | IN_DELETE_SELF | \
+                     IN_MOVE_SELF)
+
+    IN_NONBLOCK = 0000_4000
   end
 end
-
-pid = fork do
-  Signal.trap('INT') do
-    exit
-  end
-
-  fd = Inotify.init
-  wd = Inotify.add_watch(fd, '../backup', Inotify::Flags::IN_ALL_EVENTS)
-  Inotify.watch(fd) do |wd, mask, cookie, len, name|
-    puts "wd: #{wd}, mask: #{mask}, cookie: #{cookie}, len: #{len}, name: #{name}"
-  end
-  exit
-end
-
-puts 'Press ctrl-C to exit'
-Signal.trap('INT') do
-  puts ''
-  puts 'Exiting...'
-  Process.kill 'KILL', pid
-  exit
-end
-
-Process.waitall
