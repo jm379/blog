@@ -1,5 +1,5 @@
 {{ $markdownPath := base .OriginalReq.URL.Path }}
-{{ $markdownFilePath := printf "/%s.md" $markdownPath }}
+{{ $markdownFilePath := printf "posts/%s.md" $markdownPath }}
 {{ if not (fileExists $markdownFilePath) }} {{ httpError 404 }} {{ end }}
 {{ $markdownFile := (include $markdownFilePath | splitFrontMatter) }}
 {{ $title := default "post.md" $markdownFile.Meta.title }}

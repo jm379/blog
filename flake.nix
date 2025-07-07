@@ -18,7 +18,7 @@
 
       shellHook = ''
         export BLOG_DOMAIN=:3000 &&
-        export BLOG_ROOT=posts
+        export BLOG_ROOT=./
       '';
     };
   };
