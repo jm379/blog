@@ -34,7 +34,7 @@ jobs:
 
       - name: Compress files
         run: |
-          find ${{ github.workspace }} -type f \( -name '*.html' -o -name '*.css' -o -name '*.js' \) -exec brotli --squash --keep "{}" \;
+          find ${{ github.workspace }} -type f \( -name '*.css' -o -name '*.js' \) -exec brotli --squash --keep "{}" \;
 
       - name: Deploying with rsync
         run: |

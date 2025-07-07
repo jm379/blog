@@ -1,5 +1,5 @@
-{{ $markdownPath := base .OriginalReq.URL.Path }}
-{{ $markdownFilePath := printf "posts/%s.md" $markdownPath }}
+{{ $markdownPath := .OriginalReq.URL.Path }}
+{{ $markdownFilePath := printf "%s.md" $markdownPath }}
 {{ if not (fileExists $markdownFilePath) }} {{ httpError 404 }} {{ end }}
 {{ $markdownFile := (include $markdownFilePath | splitFrontMatter) }}
 {{ $title := default "post.md" $markdownFile.Meta.title }}
@@ -27,10 +27,6 @@
     <article>{{ markdown $markdownFile.Body }}</article>
   </main>
 
-  <footer>
-    <!-- <p>{{ now | date "2006" }} — Rodolfo V.</p> -->
-  </footer>
-
+  <footer><!-- <p>2025 — Rodolfo V.</p> --></footer>
 </body>
 </html>
-
