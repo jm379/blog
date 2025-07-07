@@ -1,22 +1,25 @@
 {$BLOG_DOMAIN} {
 	root * {$BLOG_ROOT}
 
-    header {
-      Permissions-Policy interest-cohort=()
-      Strict-Transport-Security max-age=63072000;
-      X-Content-Type-Options nosniff
-      X-Frame-Options DENY
-      Content-Security-Policy "default-src 'none'; img-src 'self'; script-src 'self'; style-src 'self'"
-      Referrer-Policy strict-origin-when-cross-origin
-    }
+	header {
+		Permissions-Policy interest-cohort=()
+		Strict-Transport-Security max-age=63072000;
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Content-Security-Policy "default-src 'none'; img-src 'self'; script-src 'self'; style-src 'self'"
+		Referrer-Policy strict-origin-when-cross-origin
+	}
 
-    header /assets/* Cache-control max-age=31536000
+	rewrite / index.html
+	header /assets/* Cache-control max-age=31536000
 
-	file_server
+	file_server {
+		precompressed
+	}
+
+	encode
 
 	templates
 
-	encode zstd gzip
-
-	try_files {path} index.html
+	try_files {path} posts/index.html
 }

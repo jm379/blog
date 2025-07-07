@@ -1,5 +1,4 @@
 ---
-index: 1
 title: Extending Ruby
 date: 2025-06-21
 description: Extending Ruby capabilities and performance using C

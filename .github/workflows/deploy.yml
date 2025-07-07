@@ -27,12 +27,23 @@ jobs:
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      - name: Set up Brotli
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y brotli
+
+      - name: Compress files
+        run: |
+          find ${{ github.workspace }} -type f \( -name '*.css' -o -name '*.js' \) -exec brotli --squash --keep "{}" \;
+
       - name: Deploying with rsync
         run: |
-          rsync -avz --delete $SOURCE_PATH $USERNAME@$HOST:$DEPLOY_PATH
+          rsync -avz --delete $POSTS_PATH $ASSETS_PATH $INDEX_PATH $USERNAME@$HOST:$DEPLOY_PATH
         env:
           DEPLOY_PATH: /var/www/blog
-          SOURCE_PATH: ${{ github.workspace }}/posts
+          POSTS_PATH: ${{ github.workspace }}/posts
+          ASSETS_PATH: ${{ github.workspace }}/assets
+          INDEX_PATH: ${{ github.workspace }}/index.html
 
       - name: Updating Caddyfile
         run: |
