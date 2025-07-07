@@ -32,9 +32,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y brotli
 
-      - name: Compress files with brotli
+      - name: Compress files
         run: |
-          find ${{ github.workspace }} -type f -name '*.html' -o -name '*.css' -o -name '*.js' -exec brotli --best {} \;
+          find ${{ github.workspace }} -type f \( -name '*.html' -o -name '*.css' -o -name '*.js' \) -exec brotli --squash --keep "{}" \;
 
       - name: Deploying with rsync
         run: |
