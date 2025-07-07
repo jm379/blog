@@ -38,7 +38,7 @@ jobs:
 
       - name: Deploying with rsync
         run: |
-          rsync -avz --delete $POSTS_PATH $PUBLIC_PATH $USERNAME@$HOST:$DEPLOY_PATH
+          rsync -avz --delete $POSTS_PATH $ASSETS_PATH $INDEX_PATH $USERNAME@$HOST:$DEPLOY_PATH
         env:
           DEPLOY_PATH: /var/www/blog
           POSTS_PATH: ${{ github.workspace }}/posts
