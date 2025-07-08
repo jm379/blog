@@ -12,9 +12,10 @@
   in {
     devShells.${system}.default = pkgs.mkShell {
       buildInputs = [
+        pkgs.ruby_3_4
+        pkgs.tree
         pkgs.zig
         pkgs.zls
-        pkgs.ruby_3_4
       ];
     };
   };
