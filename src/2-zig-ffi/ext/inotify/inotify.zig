@@ -11,8 +11,11 @@ export fn watch(fd: i32, cb: Callback) callconv(.C) i32 {
     var idx: usize = 0;
     var event: *InotifyEvent = undefined;
 
-    read = posix.read(fd, &buff) catch {
-        return -1;
+    read = posix.read(fd, &buff) catch |err| {
+        return switch (err) {
+            error.WouldBlock => -1,
+            else => -2,
+        };
     };
 
     while (idx < read) {

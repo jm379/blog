@@ -17,7 +17,7 @@ module Inotify
   end
 
   ffi_lib FFI::Library::LIBC,
-          "#{File.dirname(__FILE__)}/lib/libinotify.so"
+          File.join(File.dirname(__FILE__), 'lib', 'libinotify.so')
 
   attach_function :init, :inotify_init1, [:int], :int
   attach_function :add_watch, :inotify_add_watch, [:int, :string, :uint32], :int
