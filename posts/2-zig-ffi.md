@@ -25,8 +25,7 @@ recompiled.
 
 Zig is a young yet capable systems language that introduces many features focused on safety,
 error handling, and explicit memory management, along with excellent interoperability with C
-and an impressive build system. This makes it a powerful tool in a very different—and potentially
-more dangerous—world compared to Ruby.
+and an impressive build system. This makes it a powerful tool in a very different world compared to Ruby.
 
 ## Inotify
 
