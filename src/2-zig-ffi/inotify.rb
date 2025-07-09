@@ -1,3 +1,5 @@
+#!/usr/bin/env ruby
+
 require_relative 'ext/inotify/inotify'
 
 path = ARGV.pop
@@ -10,6 +12,7 @@ Signal.trap('INT') do
   puts ''
   puts 'Exiting...'
   Inotify.rm_watch(@wd, @fd)
+  IO.new(@fd).close
   exit
 end
 
