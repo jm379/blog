@@ -29,7 +29,7 @@ puts "Watching for Inotify events in `#{path}'"
 puts 'Press ctrl-C to exit'
 
 # Initialize Inotify and create a non-blocking file descriptor
-@fd = Inotify.init Inotify::Flags::IN_NONBLOCK
+@fd = Inotify.init Inotify::IN_NONBLOCK
 # Add a watch on the specified path for all Inotify events
 @wd = Inotify.add_watch(@fd, path, Inotify::Flags::IN_ALL_EVENTS)
 

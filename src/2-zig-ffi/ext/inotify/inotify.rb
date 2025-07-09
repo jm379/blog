@@ -10,6 +10,7 @@ end
 
 module Inotify
   extend FFI::Library
+  IN_NONBLOCK = 0000_4000 # Non-blocking flag
 
   # Define a class to represent an Inotify event struct
   class Event < FFI::Struct
@@ -78,8 +79,6 @@ module Inotify
                      IN_CLOSE_NOWRITE | IN_OPEN | IN_MOVED_FROM |
                      IN_MOVED_TO | IN_DELETE | IN_CREATE | IN_DELETE_SELF |
                      IN_MOVE_SELF)
-
-    IN_NONBLOCK = 0000_4000 # Non-blocking flag
 
     # Method to get all the flags encoded from a mask value
     def self.flags(mask)
