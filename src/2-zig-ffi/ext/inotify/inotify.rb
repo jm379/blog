@@ -1,3 +1,5 @@
+# Use inline Bundler to manage dependencies, specifically the
+# 'ffi' gem for foreign function interface
 require 'bundler/inline'
 
 gemfile do
@@ -9,25 +11,35 @@ end
 module Inotify
   extend FFI::Library
 
+  # Define a class to represent an Inotify event struct
   class Event < FFI::Struct
     layout :wd,     :int32,
            :mask,   :uint32,
            :cookie, :uint32,
            :len,    :uint32
+
+    # Method to get the flags from the mask field 
+    def flags
+      Flags.flags self[:mask]
+    end
   end
 
+  # Load the C standard library and the shared Inotify library created by Zig
   ffi_lib FFI::Library::LIBC,
           File.join(File.dirname(__FILE__), 'lib', 'libinotify.so')
 
+  # Attach functions from the Inotify shared library
   attach_function :init, :inotify_init1, [:int], :int
   attach_function :add_watch, :inotify_add_watch, [:int, :string, :uint32], :int
   attach_function :rm_watch, :inotify_rm_watch, [:int, :uint32], :int
 
+  # Define a callback type for handling Inotify events
   callback :callback, [Event.by_ref, :string], :void
   attach_function :watch, [:int32, :callback], :int32
 
+  # Define flags for various Inotify events,
+  # based on the Linux kernel definitions
   module Flags
-    # Flags taken from https://github.com/torvalds/linux/blob/master/include/uapi/linux/inotify.h
     IN_ACCESS         = 0x0000_0001 # File was accessed
     IN_MODIFY         = 0x0000_0002 # File was modified
     IN_ATTRIB         = 0x0000_0004 # Metadata changed
@@ -62,11 +74,19 @@ module Inotify
     # All of the events - we build the list by hand so that we can add flags in
     # the future and not break backward compatibility.  Apps will get only the
     # events that they originally wanted.  Be sure to add new events here!
-    IN_ALL_EVENTS = (IN_ACCESS | IN_MODIFY | IN_ATTRIB | IN_CLOSE_WRITE | \
-                     IN_CLOSE_NOWRITE | IN_OPEN | IN_MOVED_FROM | \
-                     IN_MOVED_TO | IN_DELETE | IN_CREATE | IN_DELETE_SELF | \
+    IN_ALL_EVENTS = (IN_ACCESS | IN_MODIFY | IN_ATTRIB | IN_CLOSE_WRITE |
+                     IN_CLOSE_NOWRITE | IN_OPEN | IN_MOVED_FROM |
+                     IN_MOVED_TO | IN_DELETE | IN_CREATE | IN_DELETE_SELF |
                      IN_MOVE_SELF)
 
-    IN_NONBLOCK = 0000_4000
+    IN_NONBLOCK = 0000_4000 # Non-blocking flag
+
+    # Method to get all the flags encoded from a mask value
+    def self.flags(mask)
+      constants.filter do |const_name|
+        const_value = const_get(const_name)
+        (const_value & mask) == const_value
+      end
+    end
   end
 end
